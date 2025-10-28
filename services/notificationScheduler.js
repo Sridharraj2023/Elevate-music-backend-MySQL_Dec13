@@ -53,7 +53,14 @@ class NotificationScheduler {
       console.log(`Found ${users.length} users with incomplete subscriptions`);
 
       for (const user of users) {
-        await this.processUserReminder(user, today, sevenDaysFromNow, threeDaysFromNow, oneDayFromNow, expiredDate);
+        await this.processUserReminder(
+          user,
+          today,
+          sevenDaysFromNow,
+          threeDaysFromNow,
+          oneDayFromNow,
+          expiredDate,
+        );
       }
 
       console.log('Notification check completed');
@@ -62,15 +69,33 @@ class NotificationScheduler {
     }
   }
 
-  async processUserReminder(user, today, sevenDaysFromNow, threeDaysFromNow, oneDayFromNow, expiredDate) {
+  async processUserReminder(
+    user,
+    today,
+    sevenDaysFromNow,
+    threeDaysFromNow,
+    oneDayFromNow,
+    expiredDate,
+  ) {
     try {
       const paymentDate = user.subscription.paymentDate;
-      const expiryDate = new Date(paymentDate.getTime() + (user.subscription.validityDays * 24 * 60 * 60 * 1000));
-      const remainingDays = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const expiryDate = new Date(
+        paymentDate.getTime() + user.subscription.validityDays * 24 * 60 * 60 * 1000,
+      );
+      const remainingDays = Math.ceil(
+        (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
 
       // Check if user should receive a reminder
-      const reminderType = this.getReminderType(expiryDate, today, sevenDaysFromNow, threeDaysFromNow, oneDayFromNow, expiredDate);
-      
+      const reminderType = this.getReminderType(
+        expiryDate,
+        today,
+        sevenDaysFromNow,
+        threeDaysFromNow,
+        oneDayFromNow,
+        expiredDate,
+      );
+
       if (!reminderType) {
         return; // No reminder needed
       }
@@ -80,7 +105,7 @@ class NotificationScheduler {
         userId: user._id,
         template: reminderType,
         status: 'sent',
-        sentAt: { $gte: new Date(today.getTime() - 24 * 60 * 60 * 1000) } // Within last 24 hours
+        sentAt: { $gte: new Date(today.getTime() - 24 * 60 * 60 * 1000) }, // Within last 24 hours
       });
 
       if (lastReminder) {
@@ -96,13 +121,19 @@ class NotificationScheduler {
 
       // Send reminder
       await this.sendReminder(user, reminderType, remainingDays);
-
     } catch (error) {
       console.error(`Error processing reminder for user ${user.email}:`, error);
     }
   }
 
-  getReminderType(expiryDate, today, sevenDaysFromNow, threeDaysFromNow, oneDayFromNow, expiredDate) {
+  getReminderType(
+    expiryDate,
+    today,
+    sevenDaysFromNow,
+    threeDaysFromNow,
+    oneDayFromNow,
+    expiredDate,
+  ) {
     const expiryTime = expiryDate.getTime();
     const todayTime = today.getTime();
     const sevenDaysTime = sevenDaysFromNow.getTime();
@@ -111,17 +142,26 @@ class NotificationScheduler {
     const expiredTime = expiredDate.getTime();
 
     // Check if expiry is within 7 days (with 1 day tolerance)
-    if (expiryTime >= sevenDaysTime - (24 * 60 * 60 * 1000) && expiryTime <= sevenDaysTime + (24 * 60 * 60 * 1000)) {
+    if (
+      expiryTime >= sevenDaysTime - 24 * 60 * 60 * 1000 &&
+      expiryTime <= sevenDaysTime + 24 * 60 * 60 * 1000
+    ) {
       return '7day_reminder';
     }
 
     // Check if expiry is within 3 days (with 1 day tolerance)
-    if (expiryTime >= threeDaysTime - (24 * 60 * 60 * 1000) && expiryTime <= threeDaysTime + (24 * 60 * 60 * 1000)) {
+    if (
+      expiryTime >= threeDaysTime - 24 * 60 * 60 * 1000 &&
+      expiryTime <= threeDaysTime + 24 * 60 * 60 * 1000
+    ) {
       return '3day_reminder';
     }
 
     // Check if expiry is within 1 day (with 1 day tolerance)
-    if (expiryTime >= oneDayTime - (24 * 60 * 60 * 1000) && expiryTime <= oneDayTime + (24 * 60 * 60 * 1000)) {
+    if (
+      expiryTime >= oneDayTime - 24 * 60 * 60 * 1000 &&
+      expiryTime <= oneDayTime + 24 * 60 * 60 * 1000
+    ) {
       return '1day_reminder';
     }
 
@@ -158,11 +198,12 @@ class NotificationScheduler {
         'notificationPreferences.lastReminderSent': new Date(),
       });
 
-      console.log(`${reminderType} reminder ${emailResult.success ? 'sent' : 'failed'} to ${user.email}`);
-
+      console.log(
+        `${reminderType} reminder ${emailResult.success ? 'sent' : 'failed'} to ${user.email}`,
+      );
     } catch (error) {
       console.error(`Error sending reminder to ${user.email}:`, error);
-      
+
       // Log failed notification
       await NotificationLog.create({
         userId: user._id,
@@ -191,18 +232,20 @@ class NotificationScheduler {
         totalFailed: await NotificationLog.countDocuments({ status: 'failed' }),
         totalPending: await NotificationLog.countDocuments({ status: 'pending' }),
         recentActivity: await NotificationLog.find({
-          sentAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
-        }).sort({ sentAt: -1 }).limit(10),
+          sentAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        })
+          .sort({ sentAt: -1 })
+          .limit(10),
         templateStats: await NotificationLog.aggregate([
           {
             $group: {
               _id: '$template',
               count: { $sum: 1 },
               sent: { $sum: { $cond: [{ $eq: ['$status', 'sent'] }, 1, 0] } },
-              failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } }
-            }
-          }
-        ])
+              failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
+            },
+          },
+        ]),
       };
 
       return stats;

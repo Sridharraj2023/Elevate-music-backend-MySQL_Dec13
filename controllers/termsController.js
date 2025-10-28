@@ -5,16 +5,16 @@ import TermsAndConditions from '../models/TermsAndConditions.js';
 // @route   GET /api/terms/active
 // @access  Public
 const getActiveTerms = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findOne({ 
-    isActive: true, 
-    documentType: 'terms' 
+  const terms = await TermsAndConditions.findOne({
+    isActive: true,
+    documentType: 'terms',
   });
-  
+
   if (!terms) {
     res.status(404);
     throw new Error('No active terms found');
   }
-  
+
   res.json(terms);
 });
 
@@ -22,16 +22,16 @@ const getActiveTerms = asyncHandler(async (req, res) => {
 // @route   GET /api/terms/disclaimer/active
 // @access  Public
 const getActiveDisclaimer = asyncHandler(async (req, res) => {
-  const disclaimer = await TermsAndConditions.findOne({ 
-    isActive: true, 
-    documentType: 'disclaimer' 
+  const disclaimer = await TermsAndConditions.findOne({
+    isActive: true,
+    documentType: 'disclaimer',
   });
-  
+
   if (!disclaimer) {
     res.status(404);
     throw new Error('No active disclaimer found');
   }
-  
+
   res.json(disclaimer);
 });
 
@@ -59,14 +59,16 @@ const getAllDisclaimerVersions = asyncHandler(async (req, res) => {
 // @route   GET /api/terms/admin/:id
 // @access  Private/Admin
 const getTermsById = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findById(req.params.id)
-    .populate('publishedBy', 'name email');
-  
+  const terms = await TermsAndConditions.findById(req.params.id).populate(
+    'publishedBy',
+    'name email',
+  );
+
   if (!terms) {
     res.status(404);
     throw new Error('Terms version not found');
   }
-  
+
   res.json(terms);
 });
 
@@ -75,17 +77,17 @@ const getTermsById = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const createTerms = asyncHandler(async (req, res) => {
   const { documentType, title, content, version, effectiveDate } = req.body;
-  
+
   // Check if version already exists for this document type
-  const versionExists = await TermsAndConditions.findOne({ 
-    documentType: documentType || 'terms', 
-    version 
+  const versionExists = await TermsAndConditions.findOne({
+    documentType: documentType || 'terms',
+    version,
   });
   if (versionExists) {
     res.status(400);
     throw new Error('Version already exists for this document type');
   }
-  
+
   const terms = await TermsAndConditions.create({
     documentType: documentType || 'terms',
     title: title || (documentType === 'disclaimer' ? 'Disclaimer' : 'Terms and Conditions'),
@@ -93,9 +95,9 @@ const createTerms = asyncHandler(async (req, res) => {
     version,
     publishedBy: req.user._id,
     effectiveDate: effectiveDate || Date.now(),
-    isActive: false
+    isActive: false,
   });
-  
+
   res.status(201).json(terms);
 });
 
@@ -104,23 +106,23 @@ const createTerms = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateTerms = asyncHandler(async (req, res) => {
   const terms = await TermsAndConditions.findById(req.params.id);
-  
+
   if (!terms) {
     res.status(404);
     throw new Error('Terms version not found');
   }
-  
+
   // Don't allow updating if it's active
   if (terms.isActive) {
     res.status(400);
     throw new Error('Cannot edit active terms. Create a new version instead.');
   }
-  
+
   terms.title = req.body.title || terms.title;
   terms.content = req.body.content || terms.content;
   terms.version = req.body.version || terms.version;
   terms.effectiveDate = req.body.effectiveDate || terms.effectiveDate;
-  
+
   const updatedTerms = await terms.save();
   res.json(updatedTerms);
 });
@@ -130,26 +132,26 @@ const updateTerms = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const publishTerms = asyncHandler(async (req, res) => {
   const terms = await TermsAndConditions.findById(req.params.id);
-  
+
   if (!terms) {
     res.status(404);
     throw new Error('Terms version not found');
   }
-  
+
   // Deactivate all other versions of the SAME documentType only
   await TermsAndConditions.updateMany(
-    { 
-      isActive: true, 
-      documentType: terms.documentType 
+    {
+      isActive: true,
+      documentType: terms.documentType,
     },
-    { isActive: false }
+    { isActive: false },
   );
-  
+
   // Activate this version
   terms.isActive = true;
   terms.publishedAt = Date.now();
   terms.publishedBy = req.user._id;
-  
+
   const publishedTerms = await terms.save();
   res.json(publishedTerms);
 });
@@ -159,12 +161,12 @@ const publishTerms = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const unpublishTerms = asyncHandler(async (req, res) => {
   const terms = await TermsAndConditions.findById(req.params.id);
-  
+
   if (!terms) {
     res.status(404);
     throw new Error('Terms version not found');
   }
-  
+
   terms.isActive = false;
   const unpublishedTerms = await terms.save();
   res.json(unpublishedTerms);
@@ -175,18 +177,18 @@ const unpublishTerms = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const deleteTerms = asyncHandler(async (req, res) => {
   const terms = await TermsAndConditions.findById(req.params.id);
-  
+
   if (!terms) {
     res.status(404);
     throw new Error('Terms version not found');
   }
-  
+
   // Don't allow deleting active version
   if (terms.isActive) {
     res.status(400);
     throw new Error('Cannot delete active terms version');
   }
-  
+
   await TermsAndConditions.findByIdAndDelete(req.params.id);
   res.json({ message: 'Terms version deleted successfully' });
 });
@@ -201,6 +203,5 @@ export {
   updateTerms,
   publishTerms,
   unpublishTerms,
-  deleteTerms
+  deleteTerms,
 };
-

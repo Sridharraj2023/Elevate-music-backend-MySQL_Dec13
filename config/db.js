@@ -10,7 +10,10 @@ const connectDB = async () => {
 
   // Try up to 3 times, switching to fallback if SRV/DNS fails
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const usingFallback = !!lastError && fallbackUri && /ESERVFAIL|ENOTFOUND|querySrv/i.test(String(lastError?.message));
+    const usingFallback =
+      !!lastError &&
+      fallbackUri &&
+      /ESERVFAIL|ENOTFOUND|querySrv/i.test(String(lastError?.message));
     const uri = usingFallback ? fallbackUri : primaryUri;
 
     try {
@@ -22,7 +25,9 @@ const connectDB = async () => {
         serverSelectionTimeoutMS: 8000,
         family: 4, // Prefer IPv4 to avoid some DNS/IPv6 issues
       });
-      console.log(`MongoDB Connected: ${conn.connection.host} to database: ${conn.connection.name}`);
+      console.log(
+        `MongoDB Connected: ${conn.connection.host} to database: ${conn.connection.name}`,
+      );
       return conn;
     } catch (error) {
       lastError = error;
@@ -37,7 +42,9 @@ const connectDB = async () => {
   }
 
   console.error('MongoDB Connection Error:', lastError);
-  console.error('Tips: If using mongodb+srv, ensure DNS works or set MONGO_URI_FALLBACK to a mongodb://host:port URI.');
+  console.error(
+    'Tips: If using mongodb+srv, ensure DNS works or set MONGO_URI_FALLBACK to a mongodb://host:port URI.',
+  );
   process.exit(1);
 };
 

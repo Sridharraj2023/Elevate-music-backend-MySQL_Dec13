@@ -1,5 +1,15 @@
 import express from 'express';
-import { createSubscription, getSubscriptionStatus, cancelSubscription, confirmPayment, updateSubscriptionPaymentMethod, fixSubscriptionStatus, getSubscriptionDetails, createSetupIntent, setAutoDebit } from '../controllers/subscriptionController.js';
+import {
+  createSubscription,
+  getSubscriptionStatus,
+  cancelSubscription,
+  confirmPayment,
+  updateSubscriptionPaymentMethod,
+  fixSubscriptionStatus,
+  getSubscriptionDetails,
+  createSetupIntent,
+  setAutoDebit,
+} from '../controllers/subscriptionController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();

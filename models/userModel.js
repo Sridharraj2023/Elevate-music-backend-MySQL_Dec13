@@ -71,11 +71,13 @@ const userSchema = mongoose.Schema(
         type: Boolean,
         default: true,
       },
-      reminderFrequency: [{
-        type: String,
-        enum: ['7days', '3days', '1day', 'expired'],
-        default: ['7days', '3days', '1day']
-      }],
+      reminderFrequency: [
+        {
+          type: String,
+          enum: ['7days', '3days', '1day', 'expired'],
+          default: ['7days', '3days', '1day'],
+        },
+      ],
       preferredTime: {
         type: String,
         default: '09:00',
@@ -105,33 +107,29 @@ const userSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Match user-entered password to hashed password in database
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Method to generate password reset token
-userSchema.methods.createPasswordResetToken = function() {
+userSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
-  
+
   // Hash token and save to database
-  this.resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
-  
+  this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
   // Set token expiration (1 hour)
   this.resetPasswordExpires = Date.now() + 60 * 60 * 1000;
-  
+
   return resetToken;
 };
 
 // Method to clear password reset fields
-userSchema.methods.clearPasswordResetToken = function() {
+userSchema.methods.clearPasswordResetToken = function () {
   this.resetPasswordToken = null;
   this.resetPasswordExpires = null;
 };

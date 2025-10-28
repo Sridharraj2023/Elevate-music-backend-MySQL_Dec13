@@ -8,7 +8,7 @@ import {
   deactivateSubscriptionPlan,
   activateSubscriptionPlan,
   getCurrentSubscriptionPlan,
-  setDefaultSubscriptionPlan
+  setDefaultSubscriptionPlan,
 } from '../controllers/subscriptionPlanController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { adminOnly } from '../middleware/adminMiddleware.js';
@@ -42,6 +42,11 @@ router.delete('/admin/subscription-plans/:id', protect, adminOnly, deactivateSub
 router.put('/admin/subscription-plans/:id/activate', protect, adminOnly, activateSubscriptionPlan);
 
 // PUT /admin/subscription-plans/:id/set-default - Set plan as default
-router.put('/admin/subscription-plans/:id/set-default', protect, adminOnly, setDefaultSubscriptionPlan);
+router.put(
+  '/admin/subscription-plans/:id/set-default',
+  protect,
+  adminOnly,
+  setDefaultSubscriptionPlan,
+);
 
 export default router;

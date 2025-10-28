@@ -12,7 +12,7 @@ const errorHandler = (err, req, res, next) => {
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-    'Vary': 'Origin'
+    Vary: 'Origin',
   });
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   let message = err.message;
@@ -22,8 +22,6 @@ const errorHandler = (err, req, res, next) => {
     statusCode = 404;
     message = 'Resource not found';
   }
-
-  
 
   res.status(statusCode).json({
     message: message,

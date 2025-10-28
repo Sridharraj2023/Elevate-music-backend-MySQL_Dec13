@@ -9,7 +9,7 @@ import {
   updateTerms,
   publishTerms,
   unpublishTerms,
-  deleteTerms
+  deleteTerms,
 } from '../controllers/termsController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { adminOnly } from '../middleware/adminMiddleware.js';
@@ -31,4 +31,3 @@ router.put('/admin/:id/unpublish', protect, adminOnly, unpublishTerms);
 router.delete('/admin/:id', protect, adminOnly, deleteTerms);
 
 export default router;
-

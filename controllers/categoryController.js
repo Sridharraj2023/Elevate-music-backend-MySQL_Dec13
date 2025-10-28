@@ -1,4 +1,4 @@
-import Category from "../models/Category.js";
+import Category from '../models/Category.js';
 import asyncHandler from 'express-async-handler';
 
 // @desc    Get all categories with their types
@@ -9,7 +9,7 @@ const getCategories = async (req, res) => {
     const categories = await Category.find();
     res.json(categories);
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
@@ -96,7 +96,7 @@ const addCategoryType = asyncHandler(async (req, res) => {
   }
 
   // Check if type name already exists in this category
-  if (category.types.some(type => type.name === name)) {
+  if (category.types.some((type) => type.name === name)) {
     res.status(400);
     throw new Error('Type already exists in this category');
   }
@@ -153,12 +153,12 @@ const deleteCategoryType = asyncHandler(async (req, res) => {
   res.json(updatedCategory);
 });
 
-export { 
-  getCategories, 
-  createCategory, 
-  updateCategory, 
+export {
+  getCategories,
+  createCategory,
+  updateCategory,
   deleteCategory,
   addCategoryType,
   updateCategoryType,
-  deleteCategoryType 
+  deleteCategoryType,
 };

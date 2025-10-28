@@ -22,9 +22,9 @@ export const getNotificationPreferences = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching notification preferences:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to fetch notification preferences',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -37,20 +37,21 @@ export const updateNotificationPreferences = async (req, res) => {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const { emailReminders, pushNotifications, reminderFrequency, preferredTime, timezone } = req.body;
+    const { emailReminders, pushNotifications, reminderFrequency, preferredTime, timezone } =
+      req.body;
 
     const updateData = {};
-    if (emailReminders !== undefined) updateData['notificationPreferences.emailReminders'] = emailReminders;
-    if (pushNotifications !== undefined) updateData['notificationPreferences.pushNotifications'] = pushNotifications;
-    if (reminderFrequency !== undefined) updateData['notificationPreferences.reminderFrequency'] = reminderFrequency;
-    if (preferredTime !== undefined) updateData['notificationPreferences.preferredTime'] = preferredTime;
+    if (emailReminders !== undefined)
+      updateData['notificationPreferences.emailReminders'] = emailReminders;
+    if (pushNotifications !== undefined)
+      updateData['notificationPreferences.pushNotifications'] = pushNotifications;
+    if (reminderFrequency !== undefined)
+      updateData['notificationPreferences.reminderFrequency'] = reminderFrequency;
+    if (preferredTime !== undefined)
+      updateData['notificationPreferences.preferredTime'] = preferredTime;
     if (timezone !== undefined) updateData['notificationPreferences.timezone'] = timezone;
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $set: updateData },
-      { new: true }
-    );
+    const user = await User.findByIdAndUpdate(userId, { $set: updateData }, { new: true });
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -62,9 +63,9 @@ export const updateNotificationPreferences = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating notification preferences:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to update notification preferences',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -98,9 +99,9 @@ export const getNotificationHistory = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching notification history:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to fetch notification history',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -146,9 +147,9 @@ export const sendTestNotification = async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending test notification:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to send test notification',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -160,9 +161,9 @@ export const getNotificationStats = async (req, res) => {
     return res.json(stats);
   } catch (error) {
     console.error('Error fetching notification stats:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to fetch notification stats',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -174,9 +175,9 @@ export const triggerNotificationCheck = async (req, res) => {
     return res.json({ message: 'Notification check triggered successfully' });
   } catch (error) {
     console.error('Error triggering notification check:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to trigger notification check',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -197,7 +198,7 @@ export const registerFCMToken = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       userId,
       { 'notificationPreferences.fcmToken': fcmToken },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
@@ -210,9 +211,9 @@ export const registerFCMToken = async (req, res) => {
     });
   } catch (error) {
     console.error('Error registering FCM token:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to register FCM token',
-      error: error.message 
+      error: error.message,
     });
   }
 };
@@ -264,14 +265,13 @@ export const sendManualNotification = async (req, res) => {
           success: result.success,
           error: result.error,
         });
-
       } catch (error) {
         results.push({ userId, success: false, error: error.message });
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failureCount = results.filter(r => !r.success).length;
+    const successCount = results.filter((r) => r.success).length;
+    const failureCount = results.filter((r) => !r.success).length;
 
     return res.json({
       message: `Manual notifications sent: ${successCount} successful, ${failureCount} failed`,
@@ -284,9 +284,9 @@ export const sendManualNotification = async (req, res) => {
     });
   } catch (error) {
     console.error('Error sending manual notifications:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to send manual notifications',
-      error: error.message 
+      error: error.message,
     });
   }
 };

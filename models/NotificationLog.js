@@ -35,7 +35,7 @@ const notificationLogSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 const NotificationLog = mongoose.model('NotificationLog', notificationLogSchema);

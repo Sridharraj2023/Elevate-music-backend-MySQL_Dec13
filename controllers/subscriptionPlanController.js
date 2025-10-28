@@ -6,7 +6,9 @@ let stripe = null;
 if (process.env.STRIPE_SECRET_KEY) {
   stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 } else {
-  console.warn('SubscriptionPlan Controller - STRIPE_SECRET_KEY not found - Stripe will not be initialized');
+  console.warn(
+    'SubscriptionPlan Controller - STRIPE_SECRET_KEY not found - Stripe will not be initialized',
+  );
 }
 
 // GET /admin/subscription-plans - Get all subscription plans (admin only)
@@ -19,14 +21,14 @@ export const getAllSubscriptionPlans = async (req, res) => {
 
     return res.json({
       success: true,
-      data: plans
+      data: plans,
     });
   } catch (error) {
     console.error('Error fetching subscription plans:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch subscription plans',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -35,17 +37,17 @@ export const getAllSubscriptionPlans = async (req, res) => {
 export const getActiveSubscriptionPlans = async (req, res) => {
   try {
     const plans = await SubscriptionPlan.getActivePlans();
-    
+
     return res.json({
       success: true,
-      data: plans
+      data: plans,
     });
   } catch (error) {
     console.error('Error fetching active subscription plans:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch active subscription plans',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -61,20 +63,20 @@ export const getSubscriptionPlanById = async (req, res) => {
     if (!plan) {
       return res.status(404).json({
         success: false,
-        message: 'Subscription plan not found'
+        message: 'Subscription plan not found',
       });
     }
 
     return res.json({
       success: true,
-      data: plan
+      data: plan,
     });
   } catch (error) {
     console.error('Error fetching subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -97,21 +99,28 @@ export const createSubscriptionPlan = async (req, res) => {
       features,
       isDefault,
       stripeMonthlyPriceId,
-      stripeYearlyPriceId
+      stripeYearlyPriceId,
     } = req.body;
 
     // Validate required fields
     const requiredFields = [
-      'title', 'monthlyCost', 'annualCost', 'adSupported',
-      'audioFileType', 'offlineDownloads', 'binauralTracks',
-      'soundscapeTracks', 'dynamicAudioFeatures', 'customTrackRequests'
+      'title',
+      'monthlyCost',
+      'annualCost',
+      'adSupported',
+      'audioFileType',
+      'offlineDownloads',
+      'binauralTracks',
+      'soundscapeTracks',
+      'dynamicAudioFeatures',
+      'customTrackRequests',
     ];
 
     for (const field of requiredFields) {
       if (!req.body[field] && req.body[field] !== 0) {
         return res.status(400).json({
           success: false,
-          message: `${field} is required`
+          message: `${field} is required`,
         });
       }
     }
@@ -131,8 +140,8 @@ export const createSubscriptionPlan = async (req, res) => {
           description: description || `Subscription plan: ${title}`,
           metadata: {
             plan_type: 'subscription',
-            created_by_admin: req.user._id.toString()
-          }
+            created_by_admin: req.user._id.toString(),
+          },
         });
 
         stripeProductId = product.id;
@@ -144,12 +153,12 @@ export const createSubscriptionPlan = async (req, res) => {
             unit_amount: Math.round(monthlyCost * 100), // Convert to cents
             currency: 'usd',
             recurring: {
-              interval: 'month'
+              interval: 'month',
             },
             metadata: {
               plan_title: title,
-              billing_period: 'monthly'
-            }
+              billing_period: 'monthly',
+            },
           });
 
           stripeMonthlyPriceIdFinal = monthlyPrice.id;
@@ -163,12 +172,12 @@ export const createSubscriptionPlan = async (req, res) => {
             unit_amount: Math.round(annualCost * 100), // Convert to cents
             currency: 'usd',
             recurring: {
-              interval: 'year'
+              interval: 'year',
             },
             metadata: {
               plan_title: title,
-              billing_period: 'yearly'
-            }
+              billing_period: 'yearly',
+            },
           });
 
           stripeYearlyPriceIdFinal = yearlyPrice.id;
@@ -177,14 +186,14 @@ export const createSubscriptionPlan = async (req, res) => {
         console.log('Created/Using Stripe product and prices:', {
           productId: stripeProductId,
           monthlyPriceId: stripeMonthlyPriceIdFinal,
-          yearlyPriceId: stripeYearlyPriceIdFinal
+          yearlyPriceId: stripeYearlyPriceIdFinal,
         });
       } catch (stripeError) {
         console.error('Stripe error creating product/price:', stripeError);
         return res.status(500).json({
           success: false,
           message: 'Failed to create Stripe product/price',
-          error: stripeError.message
+          error: stripeError.message,
         });
       }
     } else {
@@ -214,7 +223,7 @@ export const createSubscriptionPlan = async (req, res) => {
       features: features || [],
       isDefault: isDefault || false,
       createdBy: req.user._id,
-      effectiveDate: new Date()
+      effectiveDate: new Date(),
     });
 
     await newPlan.save();
@@ -225,14 +234,14 @@ export const createSubscriptionPlan = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: 'Subscription plan created successfully',
-      data: newPlan
+      data: newPlan,
     });
   } catch (error) {
     console.error('Error creating subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to create subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -247,7 +256,7 @@ export const updateSubscriptionPlan = async (req, res) => {
     delete updateData.stripePriceId;
     delete updateData.stripeProductId;
     delete updateData.createdBy;
-    
+
     // Allow updating price IDs if manually provided
     if (updateData.stripeMonthlyPriceId === undefined) {
       delete updateData.stripeMonthlyPriceId;
@@ -264,32 +273,31 @@ export const updateSubscriptionPlan = async (req, res) => {
       updateData.annualCost = parseFloat(updateData.annualCost);
     }
 
-    const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    )
+    const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    })
       .populate('createdBy', 'name email')
       .populate('lastModifiedBy', 'name email');
 
     if (!updatedPlan) {
       return res.status(404).json({
         success: false,
-        message: 'Subscription plan not found'
+        message: 'Subscription plan not found',
       });
     }
 
     return res.json({
       success: true,
       message: 'Subscription plan updated successfully',
-      data: updatedPlan
+      data: updatedPlan,
     });
   } catch (error) {
     console.error('Error updating subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to update subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -298,12 +306,12 @@ export const updateSubscriptionPlan = async (req, res) => {
 export const deactivateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const plan = await SubscriptionPlan.findById(id);
     if (!plan) {
       return res.status(404).json({
         success: false,
-        message: 'Subscription plan not found'
+        message: 'Subscription plan not found',
       });
     }
 
@@ -312,14 +320,14 @@ export const deactivateSubscriptionPlan = async (req, res) => {
 
     return res.json({
       success: true,
-      message: 'Subscription plan deactivated successfully'
+      message: 'Subscription plan deactivated successfully',
     });
   } catch (error) {
     console.error('Error deactivating subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to deactivate subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -328,12 +336,12 @@ export const deactivateSubscriptionPlan = async (req, res) => {
 export const activateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const plan = await SubscriptionPlan.findById(id);
     if (!plan) {
       return res.status(404).json({
         success: false,
-        message: 'Subscription plan not found'
+        message: 'Subscription plan not found',
       });
     }
 
@@ -345,14 +353,14 @@ export const activateSubscriptionPlan = async (req, res) => {
     return res.json({
       success: true,
       message: 'Subscription plan activated successfully',
-      data: plan
+      data: plan,
     });
   } catch (error) {
     console.error('Error activating subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to activate subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -361,11 +369,11 @@ export const activateSubscriptionPlan = async (req, res) => {
 export const getCurrentSubscriptionPlan = async (req, res) => {
   try {
     const currentPlan = await SubscriptionPlan.getCurrentActivePlan();
-    
+
     if (!currentPlan) {
       return res.status(404).json({
         success: false,
-        message: 'No active subscription plan found'
+        message: 'No active subscription plan found',
       });
     }
 
@@ -386,19 +394,19 @@ export const getCurrentSubscriptionPlan = async (req, res) => {
       monthlyPriceId: currentPlan.stripeMonthlyPriceId || currentPlan.stripePriceId || '',
       yearlyPriceId: currentPlan.stripeYearlyPriceId || currentPlan.stripePriceId || '',
       description: currentPlan.description,
-      features: currentPlan.features
+      features: currentPlan.features,
     };
 
     return res.json({
       success: true,
-      data: planData
+      data: planData,
     });
   } catch (error) {
     console.error('Error fetching current subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch current subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };
@@ -407,19 +415,19 @@ export const getCurrentSubscriptionPlan = async (req, res) => {
 export const setDefaultSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const plan = await SubscriptionPlan.findById(id);
     if (!plan) {
       return res.status(404).json({
         success: false,
-        message: 'Subscription plan not found'
+        message: 'Subscription plan not found',
       });
     }
 
     // Remove default flag from all other plans
     await SubscriptionPlan.updateMany(
       { _id: { $ne: id } },
-      { isDefault: false, lastModifiedBy: req.user._id }
+      { isDefault: false, lastModifiedBy: req.user._id },
     );
 
     // Set this plan as default
@@ -430,14 +438,14 @@ export const setDefaultSubscriptionPlan = async (req, res) => {
     return res.json({
       success: true,
       message: 'Default subscription plan updated successfully',
-      data: plan
+      data: plan,
     });
   } catch (error) {
     console.error('Error setting default subscription plan:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to set default subscription plan',
-      error: error.message
+      error: error.message,
     });
   }
 };

@@ -11,11 +11,11 @@ const envPaths = [
   path.join(__dirname, '.env'),
   path.join(__dirname, '..', '.env'),
   path.join(process.cwd(), '.env'),
-  path.join(process.cwd(), 'Backend-Server', 'music', 'backend', '.env')
+  path.join(process.cwd(), 'Backend-Server', 'music', 'backend', '.env'),
 ];
 
 console.log('Looking for .env file in:');
-envPaths.forEach(envPath => {
+envPaths.forEach((envPath) => {
   console.log('-', envPath);
 });
 
@@ -64,7 +64,6 @@ connectDB();
 
 const app = express();
 
-
 // Stripe webhook must be registered BEFORE express.json() to preserve raw body
 app.post('/api/subscriptions/webhook', express.raw({ type: 'application/json' }), handleWebhook);
 
@@ -75,25 +74,27 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       'https://elevateintune.com',
-      'https://elevate-admin-frontend.netlify.app',
       'http://localhost:3000',
       'http://localhost:5173',
       'http://127.0.0.1:3000',
       'http://192.168.1.7:3000',
       'http://172.234.201.117:5173',
       'http://172.234.201.117:5174',
-      'http://172.232.30.46:5173',
-      'http://172.232.30.46:5174'
     ];
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       // For development, allow any local network origin including 172.x.x.x range
-      if (origin.includes('192.168.') || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('172.')) {
+      if (
+        origin.includes('192.168.') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin.includes('172.')
+      ) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
@@ -104,7 +105,7 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Range', 'If-Range'],
   optionsSuccessStatus: 200,
-  preflightContinue: false
+  preflightContinue: false,
 };
 
 app.use(cors(corsOptions));
@@ -118,8 +119,6 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
-
-
 // Serve static uploads with proper CORS and range support for media
 app.use(
   '/uploads',
@@ -128,14 +127,13 @@ app.use(
     res.setHeader('Accept-Ranges', 'bytes');
     next();
   },
-  express.static(path.join(__dirname, 'uploads'))
+  express.static(path.join(__dirname, 'uploads')),
 ); // Use path.join for cross-platform compatibility
 
 app.use((req, res, next) => {
   console.log('CORS headers set for:', req.method, req.url);
   next();
 });
-
 
 app.use(cookieParser());
 
@@ -159,7 +157,7 @@ if (process.env.NODE_ENV === 'production') {
   const __dirname = path.resolve();
   app.use(express.static(path.join(__dirname, '/frontend/dist')));
   app.get('*', (req, res) =>
-    res.sendFile(path.resolve(__dirname, 'frontend', 'dist', 'index.html'))
+    res.sendFile(path.resolve(__dirname, 'frontend', 'dist', 'index.html')),
   );
 } else {
   app.get('/', (req, res) => {

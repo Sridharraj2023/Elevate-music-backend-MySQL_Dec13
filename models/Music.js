@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const musicSchema = mongoose.Schema(
   {
@@ -12,7 +12,7 @@ const musicSchema = mongoose.Schema(
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
+      ref: 'Category',
       required: true,
     },
     categoryType: {
@@ -39,9 +39,9 @@ const musicSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-const Music = mongoose.model("Music", musicSchema);
+const Music = mongoose.model('Music', musicSchema);
 
 export default Music;

@@ -9,7 +9,10 @@ import Stripe from 'stripe';
 
 // Debug: Check if STRIPE_SECRET_KEY is loaded
 console.log('STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'Found' : 'NOT FOUND');
-console.log('All env vars:', Object.keys(process.env).filter(key => key.includes('STRIPE')));
+console.log(
+  'All env vars:',
+  Object.keys(process.env).filter((key) => key.includes('STRIPE')),
+);
 
 // Initialize Stripe only if secret key is available
 let stripe = null;
@@ -18,7 +21,6 @@ if (process.env.STRIPE_SECRET_KEY) {
 } else {
   console.warn('STRIPE_SECRET_KEY not found - Stripe will not be initialized');
 }
-
 
 // @desc    Auth user & get token
 // @route   POST /api/users/auth
@@ -46,7 +48,7 @@ const authUser = asyncHandler(async (req, res) => {
 
   // Debugging log: Check if the password comparison succeeded
   console.log('Entered Password:', password);
-  console.log('Password match:', passwordMatch);  // This will show true/false
+  console.log('Password match:', passwordMatch); // This will show true/false
 
   if (passwordMatch) {
     const token = generateToken(user._id);
@@ -56,17 +58,17 @@ const authUser = asyncHandler(async (req, res) => {
       sameSite: 'strict',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
-    
+
     // Include subscription status in login response
     let subscriptionStatus = null;
     if (user.subscription && user.subscription.id) {
       subscriptionStatus = {
         id: user.subscription.id,
         status: user.subscription.status,
-        isActive: user.subscription.status === 'active' || user.subscription.status === 'trialing'
+        isActive: user.subscription.status === 'active' || user.subscription.status === 'trialing',
       };
     }
-    
+
     res.json({
       _id: user._id,
       name: user.name,
@@ -103,20 +105,20 @@ const registerUser = asyncHandler(async (req, res) => {
     const user = await User.create({
       name,
       email,
-      password, 
+      password,
       role: role || 'user', // Assign role or default to 'user'
     });
 
     if (user) {
       const token = generateToken(user._id);
 
-    //  Set the token as an HTTP-only cookie
-    res.cookie('jwt', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Set true in production (HTTPS)
-      sameSite: 'strict',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-    });
+      //  Set the token as an HTTP-only cookie
+      res.cookie('jwt', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production', // Set true in production (HTTPS)
+        sameSite: 'strict',
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      });
       res.status(201).json({
         _id: user._id,
         name: user.name,
@@ -168,9 +170,6 @@ const getUserProfile = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/forgot-password
 // @access  Private
 
-
-
-
 // @desc    Update user profile
 // @route   PUT /api/users/profile
 // @access  Private
@@ -204,7 +203,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   }
 });
 
-
 // @desc    Get all users (Admin only)
 // @route   GET /api/users/all
 // @access  Private/Admin
@@ -212,26 +210,26 @@ const getAllUsers = asyncHandler(async (req, res) => {
   const users = await User.find({})
     .select('-password -resetPasswordToken -resetPasswordExpires')
     .sort({ createdAt: -1 }); // Newest first
-  
+
   // Calculate subscription status for each user
-  const usersWithStatus = users.map(user => {
+  const usersWithStatus = users.map((user) => {
     const userObj = user.toObject();
-    
+
     // Determine subscription status
     let subscriptionStatus = 'No Subscription';
     let isActive = false;
     let daysRemaining = 0;
     let expiryDate = null;
-    
+
     if (userObj.subscription && userObj.subscription.paymentDate) {
       const paymentDate = new Date(userObj.subscription.paymentDate);
       const validityDays = userObj.subscription.validityDays || 30;
       expiryDate = new Date(paymentDate);
       expiryDate.setDate(expiryDate.getDate() + validityDays);
-      
+
       const now = new Date();
       daysRemaining = Math.ceil((expiryDate - now) / (1000 * 60 * 60 * 24));
-      
+
       if (daysRemaining > 0) {
         subscriptionStatus = 'Active';
         isActive = true;
@@ -242,22 +240,22 @@ const getAllUsers = asyncHandler(async (req, res) => {
         subscriptionStatus = 'Inactive';
         isActive = false;
       }
-      
+
       // Check if canceled
       if (userObj.subscription.cancelAtPeriodEnd) {
         subscriptionStatus = 'Canceled';
       }
     }
-    
+
     return {
       ...userObj,
       subscriptionStatus,
       isActive,
       daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
-      expiryDate: expiryDate
+      expiryDate: expiryDate,
     };
   });
-  
+
   res.json(usersWithStatus);
 });
 
@@ -291,25 +289,25 @@ const forgotUserPassword = asyncHandler(async (req, res) => {
 
   // Always return success message for security (don't reveal if email exists)
   if (!user) {
-    res.json({ 
-      message: 'If an account with that email exists, a password reset link has been sent.' 
+    res.json({
+      message: 'If an account with that email exists, a password reset link has been sent.',
     });
     return;
   }
 
   // Generate reset token using the model method
   const resetToken = user.createPasswordResetToken();
-  
+
   // Save user with reset token and expiration
   await user.save({ validateBeforeSave: false });
 
   try {
     // Import email service
     const emailService = (await import('../services/emailService.js')).default;
-    
+
     // Send password reset email
     const result = await emailService.sendPasswordResetEmail(user, resetToken);
-    
+
     // Log the reset token for testing (remove in production)
     console.log('Password reset token for', email, ':', resetToken);
 
@@ -317,19 +315,19 @@ const forgotUserPassword = asyncHandler(async (req, res) => {
       // If email fails, clear the reset token
       user.clearPasswordResetToken();
       await user.save({ validateBeforeSave: false });
-      
+
       res.status(500);
       throw new Error('Error sending email. Please try again later.');
     }
 
-    res.json({ 
-      message: 'If an account with that email exists, a password reset link has been sent.' 
+    res.json({
+      message: 'If an account with that email exists, a password reset link has been sent.',
     });
   } catch (error) {
     // Clear reset token if any error occurs
     user.clearPasswordResetToken();
     await user.save({ validateBeforeSave: false });
-    
+
     console.error('Forgot password error:', error);
     res.status(500);
     throw new Error('Error sending password reset email. Please try again later.');
@@ -355,15 +353,12 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 
   // Hash the token to compare with database
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(token)
-    .digest('hex');
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
   // Find user with valid reset token and not expired
   const user = await User.findOne({
     resetPasswordToken: hashedToken,
-    resetPasswordExpires: { $gt: Date.now() }
+    resetPasswordExpires: { $gt: Date.now() },
   });
 
   if (!user) {
@@ -373,17 +368,17 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   // Update password (will be hashed by pre-save hook)
   user.password = password;
-  
+
   // Clear reset token fields
   user.clearPasswordResetToken();
-  
+
   // Save user
   await user.save();
 
   try {
     // Import email service
     const emailService = (await import('../services/emailService.js')).default;
-    
+
     // Send confirmation email
     await emailService.sendPasswordResetConfirmationEmail(user);
   } catch (error) {
@@ -391,8 +386,8 @@ const resetPassword = asyncHandler(async (req, res) => {
     // Don't fail the password reset if email fails
   }
 
-  res.json({ 
-    message: 'Password reset successful. You can now log in with your new password.' 
+  res.json({
+    message: 'Password reset successful. You can now log in with your new password.',
   });
 });
 const deleteUser = asyncHandler(async (req, res) => {
@@ -408,7 +403,6 @@ const deleteUser = asyncHandler(async (req, res) => {
   await User.findByIdAndDelete(req.params.id);
   res.json({ message: 'User deleted successfully' });
 });
-
 
 // @desc    Get user billing status
 // @route   GET /api/users/billing
@@ -430,23 +424,26 @@ const getBillingStatus = asyncHandler(async (req, res) => {
     if (user.stripeCustomerId && stripe) {
       try {
         console.log('Checking payment methods for customer:', user.stripeCustomerId);
-        
+
         // First, get all payment methods for the customer
         const paymentMethods = await stripe.paymentMethods.list({
           customer: user.stripeCustomerId,
           type: 'card',
         });
-        
+
         console.log('Found payment methods:', paymentMethods.data.length);
-        console.log('Payment methods:', paymentMethods.data.map(pm => ({
-          id: pm.id,
-          type: pm.type,
-          card: pm.card?.last4
-        })));
-        
+        console.log(
+          'Payment methods:',
+          paymentMethods.data.map((pm) => ({
+            id: pm.id,
+            type: pm.type,
+            card: pm.card?.last4,
+          })),
+        );
+
         // Check if customer has any payment methods
         hasDefaultPaymentMethod = paymentMethods.data.length > 0;
-        
+
         console.log('hasDefaultPaymentMethod:', hasDefaultPaymentMethod);
       } catch (error) {
         console.error('Error fetching customer payment methods:', error);
@@ -460,13 +457,13 @@ const getBillingStatus = asyncHandler(async (req, res) => {
 
     return res.json({
       hasDefaultPaymentMethod,
-      autoDebit
+      autoDebit,
     });
   } catch (error) {
     console.error('Error fetching billing status:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'Failed to fetch billing status',
-      error: error.message 
+      error: error.message,
     });
   }
 });

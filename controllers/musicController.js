@@ -1,5 +1,5 @@
 // controllers/musicController.js
-import Music from "../models/Music.js";
+import Music from '../models/Music.js';
 import asyncHandler from 'express-async-handler';
 import mongoose from 'mongoose';
 import path from 'path';
@@ -10,8 +10,6 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-
 
 // @desc    Get music by category
 // @route   GET /api/music/category/:categoryId
@@ -24,7 +22,6 @@ const getMusicByCategory = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: 'Invalid category ID' });
     }
 
-    console.log(`Fetching music for category: ${categoryId}`);
     const musicList = await Music.find({ category: categoryId }).populate({
       path: 'category',
       select: 'name description types',
@@ -34,15 +31,15 @@ const getMusicByCategory = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: 'No music found for this category' });
     }
 
-    const musicWithUrls = musicList.map(music => {
+    const musicWithUrls = musicList.map((music) => {
       // Always return relative URLs so clients can prepend their own base
       const fileName = music.fileUrl ? path.basename(music.fileUrl) : null;
       const thumbnailName = music.thumbnailUrl ? path.basename(music.thumbnailUrl) : null;
 
       let categoryTypeDetails = null;
       if (music.category && music.categoryType && music.category.types) {
-        categoryTypeDetails = music.category.types.find(type => 
-          type._id.toString() === music.categoryType.toString()
+        categoryTypeDetails = music.category.types.find(
+          (type) => type._id.toString() === music.categoryType.toString(),
         );
       }
 
@@ -50,20 +47,21 @@ const getMusicByCategory = asyncHandler(async (req, res) => {
         ...music._doc,
         fileUrl: fileName ? `/uploads/${fileName}` : null,
         thumbnailUrl: thumbnailName ? `/uploads/${thumbnailName}` : null,
-        category: music.category ? {
-          _id: music.category._id,
-          name: music.category.name,
-          description: music.category.description,
-        } : null,
+        category: music.category
+          ? {
+              _id: music.category._id,
+              name: music.category.name,
+              description: music.category.description,
+            }
+          : null,
         categoryType: categoryTypeDetails || null,
       };
     });
 
-    console.log('Music with URLs by category:', musicWithUrls);
     res.json(musicWithUrls);
   } catch (error) {
     console.error('Error in getMusicByCategory:', error);
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
 });
 // @desc    Get all music with category and type details
@@ -72,13 +70,12 @@ const getMusicByCategory = asyncHandler(async (req, res) => {
 // controllers/musicController.js
 const getMusic = asyncHandler(async (req, res) => {
   try {
-    console.log('Fetching music from database...');
     const musicList = await Music.find().populate({
       path: 'category',
       select: 'name description types',
     });
 
-    const musicWithUrls = musicList.map(music => {
+    const musicWithUrls = musicList.map((music) => {
       // Always return relative URLs so clients can prepend their own base
       const fileName = music.fileUrl ? path.basename(music.fileUrl) : null;
       const thumbnailName = music.thumbnailUrl ? path.basename(music.thumbnailUrl) : null;
@@ -86,8 +83,8 @@ const getMusic = asyncHandler(async (req, res) => {
       // Safely handle categoryType lookup
       let categoryTypeDetails = null;
       if (music.category && music.categoryType && music.category.types) {
-        categoryTypeDetails = music.category.types.find(type => 
-          type._id.toString() === music.categoryType.toString()
+        categoryTypeDetails = music.category.types.find(
+          (type) => type._id.toString() === music.categoryType.toString(),
         );
       }
 
@@ -95,20 +92,21 @@ const getMusic = asyncHandler(async (req, res) => {
         ...music._doc,
         fileUrl: fileName ? `/uploads/${fileName}` : null,
         thumbnailUrl: thumbnailName ? `/uploads/${thumbnailName}` : null,
-        category: music.category ? {
-          _id: music.category._id,
-          name: music.category.name,
-          description: music.category.description,
-        } : null, // Handle null category
+        category: music.category
+          ? {
+              _id: music.category._id,
+              name: music.category.name,
+              description: music.category.description,
+            }
+          : null, // Handle null category
         categoryType: categoryTypeDetails,
       };
     });
 
-    console.log('Music with URLs:', musicWithUrls);
     res.json(musicWithUrls);
   } catch (error) {
     console.error('Error in getMusic:', error);
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
 });
 
@@ -116,8 +114,6 @@ const getMusic = asyncHandler(async (req, res) => {
 // @route   POST /api/music/create
 // @access  Private/Admin
 const createMusic = asyncHandler(async (req, res) => {
-  console.log('Request Body:', req.body);
-  console.log('Files:', req.files);
   const { title, artist, category, categoryType, duration, releaseDate } = req.body;
   const audioFile = req.files?.file?.[0];
   const thumbnailFile = req.files?.thumbnail?.[0];
@@ -134,8 +130,8 @@ const createMusic = asyncHandler(async (req, res) => {
 
   if (missingFields.length > 0) {
     return res.status(400).json({
-      message: "Missing required fields",
-      missing: missingFields
+      message: 'Missing required fields',
+      missing: missingFields,
     });
   }
 
@@ -155,15 +151,14 @@ const createMusic = asyncHandler(async (req, res) => {
       musicData.thumbnailUrl = `/uploads/${thumbnailFile.filename}`;
     }
 
-    console.log('Creating music with data:', musicData); // Log before creation
     const music = await Music.create(musicData);
     const populatedMusic = await Music.findById(music._id).populate('category', 'name description');
     res.status(201).json(populatedMusic);
   } catch (error) {
     console.error('Create music error:', error);
     res.status(500).json({
-      message: "Server Error",
-      error: error.message
+      message: 'Server Error',
+      error: error.message,
     });
   }
 });
@@ -174,7 +169,7 @@ const createMusic = asyncHandler(async (req, res) => {
 const updateMusic = asyncHandler(async (req, res) => {
   try {
     const music = await Music.findById(req.params.id);
-    
+
     if (!music) {
       return res.status(404).json({ message: 'Music not found' });
     }
@@ -194,8 +189,12 @@ const updateMusic = asyncHandler(async (req, res) => {
     // Update fields
     music.title = req.body.title || music.title;
     music.artist = req.body.artist || music.artist;
-    music.category = req.body.category ? new mongoose.Types.ObjectId(req.body.category) : music.category;
-    music.categoryType = req.body.categoryType ? new mongoose.Types.ObjectId(req.body.categoryType) : music.categoryType;
+    music.category = req.body.category
+      ? new mongoose.Types.ObjectId(req.body.category)
+      : music.category;
+    music.categoryType = req.body.categoryType
+      ? new mongoose.Types.ObjectId(req.body.categoryType)
+      : music.categoryType;
     music.duration = req.body.duration || music.duration;
     music.releaseDate = req.body.releaseDate || music.releaseDate;
 
@@ -220,13 +219,16 @@ const updateMusic = asyncHandler(async (req, res) => {
     }
 
     const updatedMusic = await music.save();
-    const populatedMusic = await Music.findById(updatedMusic._id).populate('category', 'name description');
+    const populatedMusic = await Music.findById(updatedMusic._id).populate(
+      'category',
+      'name description',
+    );
     res.json(populatedMusic);
   } catch (error) {
     console.error('Update error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: 'Server Error',
-      error: error.message 
+      error: error.message,
     });
   }
 });
@@ -240,7 +242,7 @@ const deleteMusic = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Music not found');
   }
-  
+
   // Clean up files
   if (music.fileUrl) {
     const filePath = path.join(__dirname, '../uploads', path.basename(music.fileUrl));
@@ -263,116 +265,134 @@ const uploadFile = asyncHandler(async (req, res) => {
     // The upload middleware uses .fields() so files are in req.files
     const audioFile = req.files?.file?.[0];
     const thumbnailFile = req.files?.thumbnail?.[0];
-    
+
     if (!audioFile && !thumbnailFile) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'No file uploaded' 
+        message: 'No file uploaded',
       });
     }
 
     // Return the first available file (audio takes priority)
     const uploadedFile = audioFile || thumbnailFile;
     const fileUrl = `/uploads/${uploadedFile.filename}`;
-    
+
     res.json({
       success: true,
       message: 'File uploaded successfully',
       fileUrl: fileUrl,
       filename: uploadedFile.filename,
-      fieldname: uploadedFile.fieldname
+      fieldname: uploadedFile.fieldname,
     });
   } catch (error) {
     console.error('File upload error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Server Error',
-      error: error.message 
+      error: error.message,
     });
   }
 });
 
-// @desc    Update database URLs from local to production
+// @desc    Update database URLs from old server to new server
 // @route   POST /api/music/update-urls
 // @access  Private (Admin only)
 const updateDatabaseUrls = asyncHandler(async (req, res) => {
   try {
-    console.log(' Starting database URL update...');
-    
-    // Find all music records with local server URLs
-    const localServerPattern = /192\.168\.0\.100/;
+    // Get URLs from environment variables
+    const OLD_BASE_URL = process.env.OLD_BASE_URL;
+    const NEW_BASE_URL = process.env.NEW_BASE_URL || process.env.PRODUCTION_URL;
+
+    if (!OLD_BASE_URL || !NEW_BASE_URL) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Missing environment variables. Please set OLD_BASE_URL and NEW_BASE_URL (or PRODUCTION_URL) in .env file',
+      });
+    }
+
+    // Extract hostname from old base URL for detection
+    let oldHostname;
+    try {
+      oldHostname = new URL(OLD_BASE_URL).hostname;
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid OLD_BASE_URL format in environment variables',
+      });
+    }
+
+    // Find all music records with old server URLs
+    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const localServerPattern = new RegExp(escapeRegExp(oldHostname));
     const musicRecords = await Music.find({
       $or: [
         { fileUrl: { $regex: localServerPattern } },
-        { thumbnailUrl: { $regex: localServerPattern } }
-      ]
+        { thumbnailUrl: { $regex: localServerPattern } },
+      ],
     });
 
-    console.log(` Found ${musicRecords.length} records with local server URLs`);
+    console.log(`Found ${musicRecords.length} records to update`);
 
     if (musicRecords.length === 0) {
       return res.status(200).json({
         success: true,
-        message: 'No records found with local server URLs. Database is already up to date!',
-        updatedCount: 0
+        message: 'No records found with old server URLs. Database is already up to date!',
+        updatedCount: 0,
       });
     }
 
     let updatedCount = 0;
 
     for (const music of musicRecords) {
-      console.log(`Processing: ${music.title}`);
-      
       let needsUpdate = false;
       const updateData = {};
 
-      // Update fileUrl if it contains local server URL
-      if (music.fileUrl && music.fileUrl.includes('192.168.0.100')) {
-        const newFileUrl = music.fileUrl.replace(
-          'http://192.168.0.100:5000',
-          'https://elevate-backend-s28.onrender.com'
-        );
+      // Update fileUrl if it contains old server URL
+      if (music.fileUrl && music.fileUrl.includes(oldHostname)) {
+        const newFileUrl = music.fileUrl.replace(OLD_BASE_URL, NEW_BASE_URL);
         updateData.fileUrl = newFileUrl;
         needsUpdate = true;
-        console.log(`   New fileUrl: ${newFileUrl}`);
       }
 
-      // Update thumbnailUrl if it contains local server URL
-      if (music.thumbnailUrl && music.thumbnailUrl.includes('192.168.0.100')) {
-        const newThumbnailUrl = music.thumbnailUrl.replace(
-          'http://192.168.0.100:5000',
-          'https://elevate-backend-s28.onrender.com'
-        );
+      // Update thumbnailUrl if it contains old server URL
+      if (music.thumbnailUrl && music.thumbnailUrl.includes(oldHostname)) {
+        const newThumbnailUrl = music.thumbnailUrl.replace(OLD_BASE_URL, NEW_BASE_URL);
         updateData.thumbnailUrl = newThumbnailUrl;
         needsUpdate = true;
-        console.log(`   New thumbnailUrl: ${newThumbnailUrl}`);
       }
 
       // Update the record if changes were made
       if (needsUpdate) {
         await Music.findByIdAndUpdate(music._id, updateData);
         updatedCount++;
-        console.log(`   Updated record: ${music.title}`);
       }
     }
 
-    console.log(` Update Summary: ${updatedCount} records updated`);
+    console.log(`Updated ${updatedCount} records`);
 
     res.status(200).json({
       success: true,
       message: `Successfully updated ${updatedCount} records`,
       updatedCount: updatedCount,
-      totalFound: musicRecords.length
+      totalFound: musicRecords.length,
     });
-
   } catch (error) {
     console.error('Error updating database URLs:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating database URLs',
-      error: error.message
+      error: error.message,
     });
   }
 });
 
-export { getMusic, getMusicByCategory, createMusic, updateMusic, deleteMusic, uploadFile, updateDatabaseUrls };
+export {
+  getMusic,
+  getMusicByCategory,
+  createMusic,
+  updateMusic,
+  deleteMusic,
+  uploadFile,
+  updateDatabaseUrls,
+};

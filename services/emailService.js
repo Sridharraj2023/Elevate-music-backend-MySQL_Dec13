@@ -4,7 +4,7 @@ class EmailService {
   constructor() {
     // Initialize Resend with API key from environment
     this.resend = new Resend(process.env.RESEND_API_KEY);
-    
+
     // Verify configuration on startup
     this.verifyConfiguration();
   }
@@ -23,14 +23,14 @@ class EmailService {
 
   async sendReminderEmail(user, reminderType, remainingDays) {
     const template = this.getEmailTemplate(reminderType, user, remainingDays);
-    
+
     try {
       const { data, error } = await this.resend.emails.send({
         from: process.env.EMAIL_FROM || 'Elevate <onboarding@resend.dev>',
         to: [user.email],
-      subject: template.subject,
-      html: template.html,
-      text: template.text,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
       });
 
       if (error) {
@@ -50,7 +50,7 @@ class EmailService {
   getEmailTemplate(reminderType, user, remainingDays) {
     const expiryDate = this.calculateExpiryDate(user.subscription.paymentDate);
     const renewalLink = `${process.env.FRONTEND_URL}/subscription/renew`;
-    
+
     const templates = {
       '7day_reminder': {
         subject: 'Your Elevate Subscription Expires in 7 Days',
@@ -67,7 +67,7 @@ class EmailService {
         html: this.get1DayReminderHTML(user.name, expiryDate, remainingDays, renewalLink),
         text: this.get1DayReminderText(user.name, expiryDate, remainingDays, renewalLink),
       },
-      'expired_reminder': {
+      expired_reminder: {
         subject: 'Your Elevate Subscription Has Expired',
         html: this.getExpiredReminderHTML(user.name, expiryDate, renewalLink),
         text: this.getExpiredReminderText(user.name, expiryDate, renewalLink),
@@ -89,7 +89,7 @@ class EmailService {
   async sendPasswordResetEmail(user, resetToken) {
     // Construct reset link for Flutter app
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    
+
     console.log('Sending password reset email to:', user.email);
 
     try {
@@ -117,7 +117,7 @@ class EmailService {
 
   async sendPasswordResetConfirmationEmail(user) {
     const loginLink = `${process.env.FRONTEND_URL}/login`;
-    
+
     console.log('Sending password reset confirmation to:', user.email);
 
     try {

@@ -6,43 +6,43 @@ const termsAndConditionsSchema = mongoose.Schema(
       type: String,
       required: true,
       enum: ['terms', 'disclaimer'],
-      default: 'terms'
+      default: 'terms',
     },
     title: {
       type: String,
       required: true,
-      default: 'Terms and Conditions'
+      default: 'Terms and Conditions',
     },
     content: {
       type: String,
-      required: true
+      required: true,
     },
     version: {
       type: String,
-      required: true
+      required: true,
     },
     isActive: {
       type: Boolean,
-      default: false
+      default: false,
     },
     publishedAt: {
       type: Date,
-      default: null
+      default: null,
     },
     publishedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true
+      required: true,
     },
     effectiveDate: {
       type: Date,
       required: true,
-      default: Date.now
-    }
+      default: Date.now,
+    },
   },
   {
-    timestamps: true
-  }
+    timestamps: true,
+  },
 );
 
 // Ensure only one active version at a time
@@ -51,4 +51,3 @@ termsAndConditionsSchema.index({ isActive: 1 });
 const TermsAndConditions = mongoose.model('TermsAndConditions', termsAndConditionsSchema);
 
 export default TermsAndConditions;
-

@@ -1,14 +1,13 @@
-import express from "express";
-import { 
-  getCategories, 
+import express from 'express';
+import {
+  getCategories,
   createCategory,
-  updateCategory, 
+  updateCategory,
   deleteCategory,
   addCategoryType,
   updateCategoryType,
-  deleteCategoryType ,
-  
-} from "../controllers/categoryController.js";
+  deleteCategoryType,
+} from '../controllers/categoryController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { adminOnly } from '../middleware/adminMiddleware.js';
 

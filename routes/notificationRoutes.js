@@ -1,13 +1,13 @@
 import express from 'express';
-import { 
-  getNotificationPreferences, 
-  updateNotificationPreferences, 
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
   getNotificationHistory,
   sendTestNotification,
   getNotificationStats,
   triggerNotificationCheck,
   sendManualNotification,
-  registerFCMToken
+  registerFCMToken,
 } from '../controllers/notificationController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
