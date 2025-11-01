@@ -26,7 +26,9 @@ export const handleWebhook = async (req, res) => {
     event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
     console.error(`Webhook signature verification failed: ${err.message}`);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    // Security: Sanitize error message to prevent XSS
+    const sanitizedMessage = String(err.message || 'Webhook verification failed').replace(/[<>]/g, '');
+    return res.status(400).send(`Webhook Error: ${sanitizedMessage}`);
   }
 
   // Handle the event

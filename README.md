@@ -216,12 +216,17 @@ Authorization: Bearer <jwt_token>
 
 ## Security Features
 
-- JWT-based authentication
-- Admin role authorization
-- Input validation and sanitization
-- CORS protection
-- File upload security
-- Environment variable protection
+- **Authentication & Authorization**: JWT-based authentication with admin role protection
+- **Input Validation**: Comprehensive validation and sanitization of all inputs
+- **Path Traversal Protection**: Filename sanitization to prevent directory traversal attacks
+- **XSS Protection**: Content sanitization and Helmet security headers
+- **CORS Protection**: Strict origin validation for cross-origin requests
+- **Rate Limiting**: Protection against DoS and brute force attacks
+- **Security Headers**: Helmet middleware for additional HTTP security headers
+- **File Upload Security**: Strict validation and controlled file operations
+- **Cookie Security**: HTTP-only, secure cookies with SameSite protection
+- **Environment Variable Protection**: Sensitive data stored in environment variables
+- **MongoDB Injection Prevention**: ObjectId validation for all database queries
 
 ## Testing
 

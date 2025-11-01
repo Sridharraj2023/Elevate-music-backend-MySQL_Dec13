@@ -32,6 +32,12 @@ const authUser = asyncHandler(async (req, res) => {
   // Debugging log: Check the incoming email and password
   console.log('Auth attempt:', { email, password });
 
+  // Security: Validate that email is a string
+  if (!email || typeof email !== 'string') {
+    res.status(400);
+    throw new Error('Invalid email format');
+  }
+
   const user = await User.findOne({ email: email.toLowerCase() });
 
   // Debugging log: Check if the user was found and their stored password
@@ -142,6 +148,8 @@ const registerUser = asyncHandler(async (req, res) => {
 const logoutUser = (req, res) => {
   res.cookie('jwt', '', {
     httpOnly: true,
+    secure: process.env.NODE_ENV === 'production', // Security: Use secure flag in production
+    sameSite: 'strict', // Security: Prevent CSRF attacks
     expires: new Date(0),
   });
   res.status(200).json({ message: 'Logged out successfully' });
@@ -284,6 +292,12 @@ const forgotUserPassword = asyncHandler(async (req, res) => {
     throw new Error('Please provide an email address');
   }
 
+  // Security: Validate that email is a string
+  if (typeof email !== 'string') {
+    res.status(400);
+    throw new Error('Invalid email format');
+  }
+
   // Find user by email (case-insensitive)
   const user = await User.findOne({ email: email.toLowerCase() });
 
@@ -345,6 +359,12 @@ const resetPassword = asyncHandler(async (req, res) => {
   if (!password) {
     res.status(400);
     throw new Error('Please provide a new password');
+  }
+
+  // Security: Validate that password is a string before checking length
+  if (typeof password !== 'string') {
+    res.status(400);
+    throw new Error('Invalid password format');
   }
 
   if (password.length < 6) {
