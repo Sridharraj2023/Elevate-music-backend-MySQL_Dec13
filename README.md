@@ -176,13 +176,111 @@ The backend includes a sophisticated subscription pricing system that allows:
 3. Set environment variables in Heroku dashboard
 4. Deploy
 
-### AWS/DigitalOcean
+### AWS/DigitalOcean/Ubuntu VPS
 
 1. Set up server with Node.js
 2. Clone repository
 3. Install dependencies
 4. Set environment variables
 5. Use PM2 for process management
+
+#### Updating the Server (Manual Process)
+
+**Step 1: SSH into your Ubuntu server**
+```bash
+ssh username@your-server-ip
+# Example: ssh ubuntu@172.234.201.117
+```
+
+**Step 2: Navigate to your project directory**
+```bash
+cd /path/to/Elevate-Backend/backend
+# Adjust the path to where your project is located
+```
+
+**Step 3: Pull latest changes from git**
+```bash
+git pull origin main
+# or 'git pull origin master' if that's your branch
+```
+
+**Step 4: Install any new dependencies**
+```bash
+npm install
+```
+
+**Step 5: Restart the server**
+
+**If using PM2 (Recommended):**
+```bash
+pm2 restart elevate-backend
+# or if you haven't named it:
+pm2 restart server.js
+```
+
+**If using systemd:**
+```bash
+sudo systemctl restart elevate-backend
+```
+
+**If running directly with node:**
+```bash
+# Stop the current process (Ctrl+C or kill the process)
+# Then restart:
+node server.js
+# Or with nodemon:
+npm start
+```
+
+#### Quick Update Script
+
+You can use the provided `deploy.sh` script for faster updates:
+
+1. Make the script executable:
+```bash
+chmod +x deploy.sh
+```
+
+2. Edit the script and update the project path:
+```bash
+nano deploy.sh
+# Change: cd /path/to/Elevate-Backend/backend
+# To your actual path
+```
+
+3. Run the script:
+```bash
+./deploy.sh
+```
+
+#### Setting up PM2 (Recommended for Production)
+
+PM2 keeps your application running and automatically restarts it if it crashes:
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start your application
+cd /path/to/Elevate-Backend/backend
+pm2 start server.js --name elevate-backend
+
+# Save PM2 configuration
+pm2 save
+
+# Setup PM2 to start on system boot
+pm2 startup
+# Follow the instructions it provides
+```
+
+**Useful PM2 commands:**
+```bash
+pm2 list              # List all processes
+pm2 restart elevate-backend  # Restart your app
+pm2 stop elevate-backend     # Stop your app
+pm2 logs elevate-backend     # View logs
+pm2 monit              # Monitor resources
+```
 
 ## API Documentation
 
