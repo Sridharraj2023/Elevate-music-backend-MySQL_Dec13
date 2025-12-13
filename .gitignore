@@ -49,6 +49,12 @@ jspm_packages/
 # next.js build output
 .next
 
+# Upload files and folders
+uploads/
+*.opus
+*.mp3
+*.wav
+
 # Nuxt.js build output
 .nuxt
 
