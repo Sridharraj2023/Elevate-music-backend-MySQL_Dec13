@@ -6,7 +6,7 @@ import asyncHandler from 'express-async-handler';
 // @access  Public
 const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find();
+    const categories = await Category.findAll();
     res.json(categories);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
@@ -24,7 +24,7 @@ const createCategory = asyncHandler(async (req, res) => {
     throw new Error('Category name is required');
   }
 
-  const categoryExists = await Category.findOne({ name });
+  const categoryExists = await Category.findOne({ where: { name } });
   if (categoryExists) {
     res.status(400);
     throw new Error('Category already exists');
@@ -34,7 +34,7 @@ const createCategory = asyncHandler(async (req, res) => {
     name,
     description,
     types: types || [], // Expecting types as an array of {name, description}
-    user: req.user._id,
+    // Remove user field as it's not in the Category model
   });
 
   if (category) {
@@ -50,7 +50,7 @@ const createCategory = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateCategory = asyncHandler(async (req, res) => {
   const { name, description, types } = req.body;
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findByPk(req.params.id);
 
   if (!category) {
     res.status(404);
@@ -69,12 +69,12 @@ const updateCategory = asyncHandler(async (req, res) => {
 // @route   DELETE /api/categories/:id
 // @access  Private/Admin
 const deleteCategory = asyncHandler(async (req, res) => {
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findByPk(req.params.id);
   if (!category) {
     res.status(404);
     throw new Error('Category not found');
   }
-  await Category.findByIdAndDelete(req.params.id);
+  await Category.destroy({ where: { id: req.params.id } });
   res.json({ message: 'Category deleted successfully' });
 });
 
@@ -83,7 +83,7 @@ const deleteCategory = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const addCategoryType = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findByPk(req.params.id);
 
   if (!category) {
     res.status(404);
@@ -111,21 +111,21 @@ const addCategoryType = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateCategoryType = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findByPk(req.params.id);
 
   if (!category) {
     res.status(404);
     throw new Error('Category not found');
   }
 
-  const type = category.types.id(req.params.typeId);
-  if (!type) {
+  const typeIndex = category.types.findIndex(type => type.id === req.params.typeId);
+  if (typeIndex === -1) {
     res.status(404);
     throw new Error('Type not found');
   }
 
-  type.name = name || type.name;
-  type.description = description || type.description;
+  category.types[typeIndex].name = name || category.types[typeIndex].name;
+  category.types[typeIndex].description = description || category.types[typeIndex].description;
 
   const updatedCategory = await category.save();
   res.json(updatedCategory);
@@ -135,20 +135,20 @@ const updateCategoryType = asyncHandler(async (req, res) => {
 // @route   DELETE /api/categories/:id/types/:typeId
 // @access  Private/Admin
 const deleteCategoryType = asyncHandler(async (req, res) => {
-  const category = await Category.findById(req.params.id);
+  const category = await Category.findByPk(req.params.id);
 
   if (!category) {
     res.status(404);
     throw new Error('Category not found');
   }
 
-  const type = category.types.id(req.params.typeId);
-  if (!type) {
+  const typeIndex = category.types.findIndex(type => type.id === req.params.typeId);
+  if (typeIndex === -1) {
     res.status(404);
     throw new Error('Type not found');
   }
 
-  category.types.pull(req.params.typeId);
+  category.types.splice(typeIndex, 1);
   const updatedCategory = await category.save();
   res.json(updatedCategory);
 });

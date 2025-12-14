@@ -1,7 +1,8 @@
 // controllers/musicController.js
 import Music from '../models/Music.js';
+import Category from '../models/Category.js';
 import asyncHandler from 'express-async-handler';
-import mongoose from 'mongoose';
+import { Op } from 'sequelize';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -40,13 +41,19 @@ const getMusicByCategory = asyncHandler(async (req, res) => {
   try {
     const { categoryId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+    // UUID validation for Sequelize
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(categoryId)) {
       return res.status(400).json({ message: 'Invalid category ID' });
     }
 
-    const musicList = await Music.find({ category: categoryId }).populate({
-      path: 'category',
-      select: 'name description types',
+    const musicList = await Music.findAll({
+      where: { categoryId },
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'description', 'types']
+      }]
     });
 
     if (!musicList.length) {
@@ -92,9 +99,12 @@ const getMusicByCategory = asyncHandler(async (req, res) => {
 // controllers/musicController.js
 const getMusic = asyncHandler(async (req, res) => {
   try {
-    const musicList = await Music.find().populate({
-      path: 'category',
-      select: 'name description types',
+    const musicList = await Music.findAll({
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'description', 'types']
+      }]
     });
 
     const musicWithUrls = musicList.map((music) => {
@@ -106,17 +116,17 @@ const getMusic = asyncHandler(async (req, res) => {
       let categoryTypeDetails = null;
       if (music.category && music.categoryType && music.category.types) {
         categoryTypeDetails = music.category.types.find(
-          (type) => type._id.toString() === music.categoryType.toString(),
+          (type) => type.id === music.categoryType,
         );
       }
 
       return {
-        ...music._doc,
+        ...music.toJSON(),
         fileUrl: fileName ? `/uploads/${fileName}` : null,
         thumbnailUrl: thumbnailName ? `/uploads/${thumbnailName}` : null,
         category: music.category
           ? {
-              _id: music.category._id,
+              id: music.category.id,
               name: music.category.name,
               description: music.category.description,
             }
@@ -175,12 +185,12 @@ const createMusic = asyncHandler(async (req, res) => {
     const musicData = {
       title,
       artist,
-      category: new mongoose.Types.ObjectId(category),
-      categoryType: new mongoose.Types.ObjectId(categoryType), // Always set since validated
+      categoryId: category,
+      categoryType: categoryType, // Always set since validated
       fileUrl: `/uploads/${audioFile.filename}`,
       duration: Number(duration),
       releaseDate: new Date(releaseDate),
-      user: req.user._id,
+      userId: req.user.id,
       description,
     };
 
@@ -189,7 +199,13 @@ const createMusic = asyncHandler(async (req, res) => {
     }
 
     const music = await Music.create(musicData);
-    const populatedMusic = await Music.findById(music._id).populate('category', 'name description');
+    const populatedMusic = await Music.findByPk(music.id, {
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'description']
+      }]
+    });
     res.status(201).json(populatedMusic);
   } catch (error) {
     console.error('Create music error:', error);
@@ -205,12 +221,13 @@ const createMusic = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateMusic = asyncHandler(async (req, res) => {
   try {
-    // Validate MongoDB ObjectId
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    // UUID validation for Sequelize
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(req.params.id)) {
       return res.status(400).json({ message: 'Invalid music ID' });
     }
 
-    const music = await Music.findById(req.params.id);
+    const music = await Music.findByPk(req.params.id);
 
     if (!music) {
       return res.status(404).json({ message: 'Music not found' });
@@ -231,18 +248,16 @@ const updateMusic = asyncHandler(async (req, res) => {
     // Update fields
     music.title = req.body.title || music.title;
     music.artist = req.body.artist || music.artist;
-    // Validate ObjectIds before assignment
+    // Validate UUIDs before assignment
     if (req.body.category) {
-      if (!mongoose.Types.ObjectId.isValid(req.body.category)) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(req.body.category)) {
         return res.status(400).json({ message: 'Invalid category ID' });
       }
-      music.category = new mongoose.Types.ObjectId(req.body.category);
+      music.categoryId = req.body.category;
     }
     if (req.body.categoryType) {
-      if (!mongoose.Types.ObjectId.isValid(req.body.categoryType)) {
-        return res.status(400).json({ message: 'Invalid categoryType ID' });
-      }
-      music.categoryType = new mongoose.Types.ObjectId(req.body.categoryType);
+      music.categoryType = req.body.categoryType;
     }
     music.duration = req.body.duration || music.duration;
     music.releaseDate = req.body.releaseDate || music.releaseDate;
@@ -285,10 +300,13 @@ const updateMusic = asyncHandler(async (req, res) => {
     }
 
     const updatedMusic = await music.save();
-    const populatedMusic = await Music.findById(updatedMusic._id).populate(
-      'category',
-      'name description',
-    );
+    const populatedMusic = await Music.findByPk(updatedMusic.id, {
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'description']
+      }]
+    });
     res.json(populatedMusic);
   } catch (error) {
     console.error('Update error:', error);
@@ -303,12 +321,13 @@ const updateMusic = asyncHandler(async (req, res) => {
 // @route   DELETE /api/music/:id
 // @access  Private/Admin
 const deleteMusic = asyncHandler(async (req, res) => {
-  // Validate MongoDB ObjectId
-  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+  // UUID validation for Sequelize
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(req.params.id)) {
     return res.status(400).json({ message: 'Invalid music ID' });
   }
 
-  const music = await Music.findById(req.params.id);
+  const music = await Music.findByPk(req.params.id);
   if (!music) {
     res.status(404);
     throw new Error('Music not found');
@@ -330,7 +349,7 @@ const deleteMusic = asyncHandler(async (req, res) => {
     }
   }
 
-  await Music.findByIdAndDelete(req.params.id);
+  await Music.destroy({ where: { id: req.params.id } });
   res.json({ message: 'Music deleted successfully' });
 });
 
@@ -400,13 +419,13 @@ const updateDatabaseUrls = asyncHandler(async (req, res) => {
     }
 
     // Find all music records with old server URLs
-    const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const localServerPattern = new RegExp(escapeRegExp(oldHostname));
-    const musicRecords = await Music.find({
-      $or: [
-        { fileUrl: { $regex: localServerPattern } },
-        { thumbnailUrl: { $regex: localServerPattern } },
-      ],
+    const musicRecords = await Music.findAll({
+      where: {
+        [Op.or]: [
+          { fileUrl: { [Op.like]: `%${oldHostname}%` } },
+          { thumbnailUrl: { [Op.like]: `%${oldHostname}%` } },
+        ],
+      },
     });
 
     console.log(`Found ${musicRecords.length} records to update`);
@@ -441,7 +460,7 @@ const updateDatabaseUrls = asyncHandler(async (req, res) => {
 
       // Update the record if changes were made
       if (needsUpdate) {
-        await Music.findByIdAndUpdate(music._id, updateData);
+        await Music.update(updateData, { where: { id: music.id } });
         updatedCount++;
       }
     }

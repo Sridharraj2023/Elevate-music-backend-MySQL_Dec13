@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
 import Stripe from 'stripe';
+import { Op } from 'sequelize';
 
 // Debug: Check if STRIPE_SECRET_KEY is loaded
 console.log('STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'Found' : 'NOT FOUND');
@@ -38,7 +39,7 @@ const authUser = asyncHandler(async (req, res) => {
     throw new Error('Invalid email format');
   }
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ where: { email: email.toLowerCase() } });
 
   // Debugging log: Check if the user was found and their stored password
   console.log('User found:', user ? { email: user.email, role: user.role } : 'No user');
@@ -57,7 +58,7 @@ const authUser = asyncHandler(async (req, res) => {
   console.log('Password match:', passwordMatch); // This will show true/false
 
   if (passwordMatch) {
-    const token = generateToken(user._id);
+    const token = generateToken(user.id);
     res.cookie('jwt', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -76,7 +77,7 @@ const authUser = asyncHandler(async (req, res) => {
     }
 
     res.json({
-      _id: user._id,
+      id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
@@ -97,7 +98,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const { name, email, password, role } = req.body; // Accept role from request
 
     // Check if the user already exists
-    let userExists = await User.findOne({ email });
+    let userExists = await User.findOne({ where: { email } });
     if (userExists) {
       res.status(400);
       throw new Error('User already exists');
@@ -116,7 +117,7 @@ const registerUser = asyncHandler(async (req, res) => {
     });
 
     if (user) {
-      const token = generateToken(user._id);
+      const token = generateToken(user.id);
 
       //  Set the token as an HTTP-only cookie
       res.cookie('jwt', token, {
@@ -126,7 +127,7 @@ const registerUser = asyncHandler(async (req, res) => {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
       res.status(201).json({
-        _id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role, // Include role in response
@@ -159,11 +160,11 @@ const logoutUser = (req, res) => {
 // @route   GET /api/users/profile
 // @access  Private
 const getUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findByPk(req.user.id);
 
   if (user) {
     res.json({
-      _id: user._id,
+      id: user.id,
       name: user.name,
       email: user.email,
       role: user.role, // Include role in response
@@ -182,7 +183,7 @@ const getUserProfile = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/profile
 // @access  Private
 const updateUserProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+  const user = await User.findByPk(req.user.id);
 
   if (user) {
     user.name = req.body.name || user.name;
@@ -200,7 +201,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     const updatedUser = await user.save();
 
     res.json({
-      _id: updatedUser._id,
+      id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role, // Include updated role in response
@@ -215,13 +216,14 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 // @route   GET /api/users/all
 // @access  Private/Admin
 const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({})
-    .select('-password -resetPasswordToken -resetPasswordExpires')
-    .sort({ createdAt: -1 }); // Newest first
+  const users = await User.findAll({
+    attributes: { exclude: ['password', 'resetPasswordToken', 'resetPasswordExpires'] },
+    order: [['createdAt', 'DESC']] // Newest first
+  });
 
   // Calculate subscription status for each user
   const usersWithStatus = users.map((user) => {
-    const userObj = user.toObject();
+    const userObj = user.toJSON();
 
     // Determine subscription status
     let subscriptionStatus = 'No Subscription';
@@ -271,7 +273,9 @@ const getAllUsers = asyncHandler(async (req, res) => {
 // @route   GET /api/users/:id
 // @access  Private/Admin
 const getUserById = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id).select('-password');
+  const user = await User.findByPk(req.params.id, {
+    attributes: { exclude: ['password'] }
+  });
   if (user) {
     res.json(user);
   } else {
@@ -299,7 +303,7 @@ const forgotUserPassword = asyncHandler(async (req, res) => {
   }
 
   // Find user by email (case-insensitive)
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const user = await User.findOne({ where: { email: email.toLowerCase() } });
 
   // Always return success message for security (don't reveal if email exists)
   if (!user) {
@@ -377,8 +381,10 @@ const resetPassword = asyncHandler(async (req, res) => {
 
   // Find user with valid reset token and not expired
   const user = await User.findOne({
-    resetPasswordToken: hashedToken,
-    resetPasswordExpires: { $gt: Date.now() },
+    where: {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { [Op.gt]: new Date() },
+    },
   });
 
   if (!user) {
@@ -411,7 +417,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   });
 });
 const deleteUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
+  const user = await User.findByPk(req.params.id);
   if (!user) {
     res.status(404);
     throw new Error('User not found');
@@ -420,7 +426,7 @@ const deleteUser = asyncHandler(async (req, res) => {
     res.status(403);
     throw new Error('Cannot delete an admin');
   }
-  await User.findByIdAndDelete(req.params.id);
+  await User.destroy({ where: { id: req.params.id } });
   res.json({ message: 'User deleted successfully' });
 });
 
@@ -429,12 +435,12 @@ const deleteUser = asyncHandler(async (req, res) => {
 // @access  Private
 const getBillingStatus = asyncHandler(async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

@@ -2,6 +2,7 @@ import User from '../models/userModel.js';
 import NotificationLog from '../models/NotificationLog.js';
 import emailService from './emailService.js';
 import cron from 'node-cron';
+import { Op } from 'sequelize';
 
 class NotificationScheduler {
   constructor() {
@@ -44,11 +45,13 @@ class NotificationScheduler {
       const expiredDate = new Date(today.getTime() - 24 * 60 * 60 * 1000); // Yesterday
 
       // Find users with incomplete subscriptions
-      const users = await User.find({
-        'subscription.paymentDate': { $exists: true },
-        'subscription.status': 'incomplete',
-        'notificationPreferences.emailReminders': true,
-      }).populate('notificationPreferences');
+      const users = await User.findAll({
+        where: {
+          subscriptionPaymentDate: { [Op.ne]: null },
+          subscriptionStatus: 'incomplete',
+          emailReminders: true,
+        },
+      });
 
       console.log(`Found ${users.length} users with incomplete subscriptions`);
 
@@ -78,9 +81,9 @@ class NotificationScheduler {
     expiredDate,
   ) {
     try {
-      const paymentDate = user.subscription.paymentDate;
+      const paymentDate = user.subscriptionPaymentDate;
       const expiryDate = new Date(
-        paymentDate.getTime() + user.subscription.validityDays * 24 * 60 * 60 * 1000,
+        paymentDate.getTime() + user.subscriptionValidityDays * 24 * 60 * 60 * 1000,
       );
       const remainingDays = Math.ceil(
         (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
@@ -102,10 +105,12 @@ class NotificationScheduler {
 
       // Check if user has already received this type of reminder recently
       const lastReminder = await NotificationLog.findOne({
-        userId: user._id,
-        template: reminderType,
-        status: 'sent',
-        sentAt: { $gte: new Date(today.getTime() - 24 * 60 * 60 * 1000) }, // Within last 24 hours
+        where: {
+          userId: user.id,
+          template: reminderType,
+          status: 'sent',
+          sentAt: { [Op.gte]: new Date(today.getTime() - 24 * 60 * 60 * 1000) },
+        },
       });
 
       if (lastReminder) {
@@ -114,7 +119,7 @@ class NotificationScheduler {
       }
 
       // Check if user has this reminder type enabled
-      if (!user.notificationPreferences.reminderFrequency.includes(reminderType)) {
+      if (!user.reminderFrequency || !user.reminderFrequency.includes(reminderType)) {
         console.log(`User ${user.email} has ${reminderType} reminders disabled`);
         return;
       }
@@ -182,7 +187,7 @@ class NotificationScheduler {
 
       // Log the notification
       await NotificationLog.create({
-        userId: user._id,
+        userId: user.id,
         type: 'email',
         template: reminderType,
         status: emailResult.success ? 'sent' : 'failed',
@@ -194,9 +199,10 @@ class NotificationScheduler {
       });
 
       // Update user's last reminder sent date
-      await User.findByIdAndUpdate(user._id, {
-        'notificationPreferences.lastReminderSent': new Date(),
-      });
+      await User.update(
+        { lastReminderSent: new Date() },
+        { where: { id: user.id } }
+      );
 
       console.log(
         `${reminderType} reminder ${emailResult.success ? 'sent' : 'failed'} to ${user.email}`,
@@ -206,7 +212,7 @@ class NotificationScheduler {
 
       // Log failed notification
       await NotificationLog.create({
-        userId: user._id,
+        userId: user.id,
         type: 'email',
         template: reminderType,
         status: 'failed',
@@ -228,24 +234,16 @@ class NotificationScheduler {
   async getNotificationStats() {
     try {
       const stats = {
-        totalSent: await NotificationLog.countDocuments({ status: 'sent' }),
-        totalFailed: await NotificationLog.countDocuments({ status: 'failed' }),
-        totalPending: await NotificationLog.countDocuments({ status: 'pending' }),
-        recentActivity: await NotificationLog.find({
-          sentAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-        })
-          .sort({ sentAt: -1 })
-          .limit(10),
-        templateStats: await NotificationLog.aggregate([
-          {
-            $group: {
-              _id: '$template',
-              count: { $sum: 1 },
-              sent: { $sum: { $cond: [{ $eq: ['$status', 'sent'] }, 1, 0] } },
-              failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
-            },
+        totalSent: await NotificationLog.count({ where: { status: 'sent' } }),
+        totalFailed: await NotificationLog.count({ where: { status: 'failed' } }),
+        totalPending: await NotificationLog.count({ where: { status: 'pending' } }),
+        recentActivity: await NotificationLog.findAll({
+          where: {
+            sentAt: { [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
           },
-        ]),
+          order: [['sentAt', 'DESC']],
+          limit: 10,
+        }),
       };
 
       return stats;

@@ -21,7 +21,7 @@ const TermsAndConditions = sequelize.define(
       defaultValue: 'Terms and Conditions',
     },
     content: {
-      type: DataTypes.LONGTEXT,
+      type: DataTypes.TEXT('long'),
       allowNull: false,
     },
     version: {

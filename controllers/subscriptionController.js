@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import User from '../models/userModel.js';
+import { Op } from 'sequelize';
 
 // Debug: Check if STRIPE_SECRET_KEY is loaded
 console.log(
@@ -166,15 +167,17 @@ export const handleWebhook = async (req, res) => {
         currentPeriodEnd = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000);
       }
 
-      await User.findOneAndUpdate(
-        { stripeCustomerId: subscriptionCreated.customer },
-        {
-          'subscription.status': subscriptionCreated.status,
-          'subscription.currentPeriodEnd': currentPeriodEnd,
-          'subscription.paymentDate': new Date(),
-          'subscription.interval': subscriptionCreated.items.data[0]?.plan?.interval || 'month',
-        },
-      );
+      const user = await User.findOne({ where: { stripeCustomerId: subscriptionCreated.customer } });
+      if (user) {
+        user.subscription = {
+          ...user.subscription,
+          status: subscriptionCreated.status,
+          currentPeriodEnd: currentPeriodEnd,
+          paymentDate: new Date(),
+          interval: subscriptionCreated.items.data[0]?.plan?.interval || 'month',
+        };
+        await user.save();
+      }
       break;
 
     case 'customer.subscription.updated':
@@ -192,53 +195,61 @@ export const handleWebhook = async (req, res) => {
         currentPeriodEndUpdated = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000);
       }
 
-      await User.findOneAndUpdate(
-        { stripeCustomerId: subscriptionUpdated.customer },
-        {
-          'subscription.status': subscriptionUpdated.status,
-          'subscription.currentPeriodEnd': currentPeriodEndUpdated,
-          'subscription.paymentDate': new Date(),
-          'subscription.interval': subscriptionUpdated.items.data[0]?.plan?.interval || 'month',
-        },
-      );
+      const userUpdated = await User.findOne({ where: { stripeCustomerId: subscriptionUpdated.customer } });
+      if (userUpdated) {
+        userUpdated.subscription = {
+          ...userUpdated.subscription,
+          status: subscriptionUpdated.status,
+          currentPeriodEnd: currentPeriodEndUpdated,
+          paymentDate: new Date(),
+          interval: subscriptionUpdated.items.data[0]?.plan?.interval || 'month',
+        };
+        await userUpdated.save();
+      }
       break;
 
     case 'customer.subscription.deleted':
       const subscriptionDeleted = event.data.object;
       console.log('Subscription deleted:', subscriptionDeleted.id);
-      await User.findOneAndUpdate(
-        { stripeCustomerId: subscriptionDeleted.customer },
-        {
-          'subscription.status': 'canceled',
-          'subscription.currentPeriodEnd': null,
-        },
-      );
+      const userDeleted = await User.findOne({ where: { stripeCustomerId: subscriptionDeleted.customer } });
+      if (userDeleted) {
+        userDeleted.subscription = {
+          ...userDeleted.subscription,
+          status: 'canceled',
+          currentPeriodEnd: null,
+        };
+        await userDeleted.save();
+      }
       break;
 
     case 'invoice.payment_succeeded':
       const invoicePaid = event.data.object;
       console.log('Invoice paid:', invoicePaid.id);
       // Update user subscription status to active
-      await User.findOneAndUpdate(
-        { stripeCustomerId: invoicePaid.customer },
-        {
-          'subscription.status': 'active',
-          'subscription.currentPeriodEnd': new Date(invoicePaid.period_end * 1000),
-          'subscription.paymentDate': new Date(),
-        },
-      );
+      const userPaid = await User.findOne({ where: { stripeCustomerId: invoicePaid.customer } });
+      if (userPaid) {
+        userPaid.subscription = {
+          ...userPaid.subscription,
+          status: 'active',
+          currentPeriodEnd: new Date(invoicePaid.period_end * 1000),
+          paymentDate: new Date(),
+        };
+        await userPaid.save();
+      }
       break;
 
     case 'invoice.payment_failed':
       const invoiceFailed = event.data.object;
       console.log('Invoice payment failed:', invoiceFailed.id);
       // Update user subscription status to past_due
-      await User.findOneAndUpdate(
-        { stripeCustomerId: invoiceFailed.customer },
-        {
-          'subscription.status': 'past_due',
-        },
-      );
+      const userFailed = await User.findOne({ where: { stripeCustomerId: invoiceFailed.customer } });
+      if (userFailed) {
+        userFailed.subscription = {
+          ...userFailed.subscription,
+          status: 'past_due',
+        };
+        await userFailed.save();
+      }
       break;
 
     default:
@@ -252,12 +263,12 @@ export const handleWebhook = async (req, res) => {
 // GET /subscriptions/status - Get current subscription status
 export const getSubscriptionStatus = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user || !user.subscription || !user.subscription.id) {
       return res.json({
         subscription: null,
@@ -302,7 +313,7 @@ export const getSubscriptionStatus = async (req, res) => {
 // POST /subscriptions/update-payment-method - Update subscription with payment method from payment intent
 export const updateSubscriptionPaymentMethod = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
@@ -312,7 +323,7 @@ export const updateSubscriptionPaymentMethod = async (req, res) => {
       return res.status(400).json({ message: 'Payment intent ID is required' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No subscription found',
@@ -504,12 +515,12 @@ export const updateSubscriptionPaymentMethod = async (req, res) => {
 // POST /subscriptions/fix-status - Manually fix subscription status based on successful charge
 export const fixSubscriptionStatus = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No subscription found',
@@ -770,12 +781,12 @@ export const fixSubscriptionStatus = async (req, res) => {
 // POST /subscriptions/confirm - Manually confirm payment and activate subscription
 export const confirmPayment = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No subscription found',
@@ -867,12 +878,12 @@ export const confirmPayment = async (req, res) => {
 // GET /subscriptions/details - Get detailed subscription information including countdown
 export const getSubscriptionDetails = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No subscription found',
@@ -938,12 +949,12 @@ export const getSubscriptionDetails = async (req, res) => {
 // POST /subscriptions/cancel - Cancel subscription at period end
 export const cancelSubscription = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No active subscription found',
@@ -980,13 +991,13 @@ export const cancelSubscription = async (req, res) => {
 // POST /payments/setup-intent - Create SetupIntent for payment method collection
 export const createSetupIntent = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
     // Find user
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -1034,7 +1045,7 @@ export const createSetupIntent = async (req, res) => {
 // PUT /subscriptions/auto-debit - Toggle auto-debit preference
 export const setAutoDebit = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
@@ -1044,7 +1055,7 @@ export const setAutoDebit = async (req, res) => {
       return res.status(400).json({ message: 'autoDebit must be a boolean value' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -1069,13 +1080,13 @@ export const setAutoDebit = async (req, res) => {
 // POST /subscriptions/create
 export const createSubscription = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
     // Find user
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
