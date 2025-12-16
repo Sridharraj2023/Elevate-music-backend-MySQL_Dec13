@@ -6,12 +6,12 @@ import emailService from '../services/emailService.js';
 // GET /notifications/preferences - Get user notification preferences
 export const getNotificationPreferences = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -32,7 +32,7 @@ export const getNotificationPreferences = async (req, res) => {
 // PUT /notifications/preferences - Update user notification preferences
 export const updateNotificationPreferences = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
@@ -40,18 +40,24 @@ export const updateNotificationPreferences = async (req, res) => {
     const { emailReminders, pushNotifications, reminderFrequency, preferredTime, timezone } =
       req.body;
 
-    const updateData = {};
-    if (emailReminders !== undefined)
-      updateData['notificationPreferences.emailReminders'] = emailReminders;
-    if (pushNotifications !== undefined)
-      updateData['notificationPreferences.pushNotifications'] = pushNotifications;
-    if (reminderFrequency !== undefined)
-      updateData['notificationPreferences.reminderFrequency'] = reminderFrequency;
-    if (preferredTime !== undefined)
-      updateData['notificationPreferences.preferredTime'] = preferredTime;
-    if (timezone !== undefined) updateData['notificationPreferences.timezone'] = timezone;
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    const user = await User.findByIdAndUpdate(userId, { $set: updateData }, { new: true });
+    let prefs = user.notificationPreferences || {};
+    if (typeof prefs === 'string') {
+      prefs = JSON.parse(prefs);
+    }
+    
+    if (emailReminders !== undefined) prefs.emailReminders = emailReminders;
+    if (pushNotifications !== undefined) prefs.pushNotifications = pushNotifications;
+    if (reminderFrequency !== undefined) prefs.reminderFrequency = reminderFrequency;
+    if (preferredTime !== undefined) prefs.preferredTime = preferredTime;
+    if (timezone !== undefined) prefs.timezone = timezone;
+
+    user.notificationPreferences = prefs;
+    await user.save();
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -73,7 +79,7 @@ export const updateNotificationPreferences = async (req, res) => {
 // GET /notifications/history - Get user notification history
 export const getNotificationHistory = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
@@ -109,14 +115,14 @@ export const getNotificationHistory = async (req, res) => {
 // POST /notifications/test - Send test notification (for admin)
 export const sendTestNotification = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
     const { reminderType = '7day_reminder' } = req.body;
 
-    const user = await User.findById(userId);
+    const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -185,7 +191,7 @@ export const triggerNotificationCheck = async (req, res) => {
 // POST /notifications/register-token - Register FCM token for push notifications
 export const registerFCMToken = async (req, res) => {
   try {
-    const userId = req.user && req.user._id;
+    const userId = req.user && req.user.id;
     if (!userId) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
@@ -195,11 +201,19 @@ export const registerFCMToken = async (req, res) => {
       return res.status(400).json({ message: 'FCM token is required' });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { 'notificationPreferences.fcmToken': fcmToken },
-      { new: true },
-    );
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let prefs = user.notificationPreferences || {};
+    if (typeof prefs === 'string') {
+      prefs = JSON.parse(prefs);
+    }
+    
+    prefs.fcmToken = fcmToken;
+    user.notificationPreferences = prefs;
+    await user.save();
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });

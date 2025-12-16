@@ -44,18 +44,28 @@ class NotificationScheduler {
       const oneDayFromNow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
       const expiredDate = new Date(today.getTime() - 24 * 60 * 60 * 1000); // Yesterday
 
-      // Find users with incomplete subscriptions
+      // Find users with subscriptions and email reminders enabled
       const users = await User.findAll({
         where: {
-          subscriptionPaymentDate: { [Op.ne]: null },
-          subscriptionStatus: 'incomplete',
-          emailReminders: true,
+          subscription: { [Op.ne]: null },
         },
       });
 
-      console.log(`Found ${users.length} users with incomplete subscriptions`);
+      console.log(`Found ${users.length} users with subscriptions`);
 
-      for (const user of users) {
+      // Filter users who have email reminders enabled and active subscriptions
+      const eligibleUsers = users.filter(user => {
+        if (!user.subscription || !user.notificationPreferences) return false;
+        
+        const hasEmailReminders = user.notificationPreferences.emailReminders === true;
+        const hasPaymentDate = user.subscription.paymentDate !== null;
+        
+        return hasEmailReminders && hasPaymentDate;
+      });
+
+      console.log(`Found ${eligibleUsers.length} eligible users for notifications`);
+
+      for (const user of eligibleUsers) {
         await this.processUserReminder(
           user,
           today,
@@ -81,9 +91,14 @@ class NotificationScheduler {
     expiredDate,
   ) {
     try {
-      const paymentDate = user.subscriptionPaymentDate;
+      if (!user.subscription || !user.subscription.paymentDate) {
+        return; // No subscription or payment date
+      }
+
+      const paymentDate = new Date(user.subscription.paymentDate);
+      const validityDays = user.subscription.validityDays || 30;
       const expiryDate = new Date(
-        paymentDate.getTime() + user.subscriptionValidityDays * 24 * 60 * 60 * 1000,
+        paymentDate.getTime() + validityDays * 24 * 60 * 60 * 1000,
       );
       const remainingDays = Math.ceil(
         (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
@@ -119,7 +134,9 @@ class NotificationScheduler {
       }
 
       // Check if user has this reminder type enabled
-      if (!user.reminderFrequency || !user.reminderFrequency.includes(reminderType)) {
+      const reminderFrequency = user.notificationPreferences?.reminderFrequency || [];
+      const reminderTypeKey = reminderType.replace('_reminder', 'days');
+      if (!reminderFrequency.includes(reminderTypeKey)) {
         console.log(`User ${user.email} has ${reminderType} reminders disabled`);
         return;
       }
@@ -198,9 +215,13 @@ class NotificationScheduler {
         },
       });
 
-      // Update user's last reminder sent date
+      // Update user's last reminder sent date in notification preferences
+      const updatedPreferences = {
+        ...user.notificationPreferences,
+        lastReminderSent: new Date().toISOString(),
+      };
       await User.update(
-        { lastReminderSent: new Date() },
+        { notificationPreferences: updatedPreferences },
         { where: { id: user.id } }
       );
 

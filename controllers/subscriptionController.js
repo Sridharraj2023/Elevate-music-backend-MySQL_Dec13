@@ -269,6 +269,12 @@ export const getSubscriptionStatus = async (req, res) => {
     }
 
     const user = await User.findByPk(userId);
+    
+    // Parse subscription if it's a string
+    if (user && typeof user.subscription === 'string') {
+      user.subscription = JSON.parse(user.subscription);
+    }
+    
     if (!user || !user.subscription || !user.subscription.id) {
       return res.json({
         subscription: null,
@@ -297,6 +303,7 @@ export const getSubscriptionStatus = async (req, res) => {
         plan: subscription.items.data[0]?.price?.id,
         interval: interval, // Use interval from user's database record
         isActive: subscription.status === 'active' || subscription.status === 'trialing',
+        paymentDate: user.subscription.paymentDate, // Add payment date from database
       },
     };
 
@@ -324,7 +331,21 @@ export const updateSubscriptionPaymentMethod = async (req, res) => {
     }
 
     const user = await User.findByPk(userId);
+    
+    // Parse subscription if it's a string
+    if (user && typeof user.subscription === 'string') {
+      user.subscription = JSON.parse(user.subscription);
+    }
+    
+    console.log('updateSubscriptionPaymentMethod - User lookup:', {
+      userId: userId,
+      userFound: !!user,
+      hasSubscription: !!user?.subscription,
+      subscriptionId: user?.subscription?.id,
+    });
+    
     if (!user || !user.subscription || !user.subscription.id) {
+      console.error('No subscription found for user:', userId);
       return res.status(404).json({
         message: 'No subscription found',
       });
@@ -521,6 +542,12 @@ export const fixSubscriptionStatus = async (req, res) => {
     }
 
     const user = await User.findByPk(userId);
+    
+    // Parse subscription if it's a string
+    if (user && typeof user.subscription === 'string') {
+      user.subscription = JSON.parse(user.subscription);
+    }
+    
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No subscription found',
@@ -787,6 +814,12 @@ export const confirmPayment = async (req, res) => {
     }
 
     const user = await User.findByPk(userId);
+    
+    // Parse subscription if it's a string
+    if (user && typeof user.subscription === 'string') {
+      user.subscription = JSON.parse(user.subscription);
+    }
+    
     if (!user || !user.subscription || !user.subscription.id) {
       return res.status(404).json({
         message: 'No subscription found',
@@ -1092,8 +1125,17 @@ export const createSubscription = async (req, res) => {
     }
 
     // Use dynamic priceId from client/admin-config; fallback to env
-    const clientPriceId = req.body?.priceId;
-    const priceId = clientPriceId || process.env.STRIPE_PRICE_ID;
+    const { priceId: clientPriceId, interval } = req.body;
+    
+    let priceId;
+    if (clientPriceId) {
+      priceId = clientPriceId;
+    } else if (interval === 'year') {
+      priceId = process.env.STRIPE_YEARLY_PRICE_ID;
+    } else {
+      priceId = process.env.STRIPE_MONTHLY_PRICE_ID || process.env.STRIPE_PRICE_ID;
+    }
+    
     if (!priceId) {
       return res.status(400).json({ message: 'Stripe price ID missing' });
     }
@@ -1241,7 +1283,17 @@ export const createSubscription = async (req, res) => {
         validityDays: validityDays,
         interval: interval,
       };
+      
+      console.log('Saving subscription to user:', {
+        userId: user.id,
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        interval: interval,
+      });
+      
       await user.save();
+      
+      console.log('Subscription saved successfully to database');
 
       // Return the client secret for the client to complete the payment
       const responseData = {
