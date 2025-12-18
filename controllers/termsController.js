@@ -1,13 +1,16 @@
 import asyncHandler from 'express-async-handler';
 import TermsAndConditions from '../models/TermsAndConditions.js';
+import User from '../models/userModel.js';
 
 // @desc    Get active terms (Public - for Flutter app)
 // @route   GET /api/terms/active
 // @access  Public
 const getActiveTerms = asyncHandler(async (req, res) => {
   const terms = await TermsAndConditions.findOne({
-    isActive: true,
-    documentType: 'terms',
+    where: {
+      isActive: true,
+      documentType: 'terms',
+    }
   });
 
   if (!terms) {
@@ -23,8 +26,10 @@ const getActiveTerms = asyncHandler(async (req, res) => {
 // @access  Public
 const getActiveDisclaimer = asyncHandler(async (req, res) => {
   const disclaimer = await TermsAndConditions.findOne({
-    isActive: true,
-    documentType: 'disclaimer',
+    where: {
+      isActive: true,
+      documentType: 'disclaimer',
+    }
   });
 
   if (!disclaimer) {
@@ -39,9 +44,11 @@ const getActiveDisclaimer = asyncHandler(async (req, res) => {
 // @route   GET /api/terms/admin
 // @access  Private/Admin
 const getAllTermsVersions = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.find({ documentType: 'terms' })
-    .populate('publishedBy', 'name email')
-    .sort({ createdAt: -1 });
+  const terms = await TermsAndConditions.findAll({
+    where: { documentType: 'terms' },
+    include: [{ model: User, as: 'publishedBy', attributes: ['name', 'email'] }],
+    order: [['createdAt', 'DESC']]
+  });
   res.json(terms);
 });
 
@@ -49,9 +56,11 @@ const getAllTermsVersions = asyncHandler(async (req, res) => {
 // @route   GET /api/terms/admin/disclaimer
 // @access  Private/Admin
 const getAllDisclaimerVersions = asyncHandler(async (req, res) => {
-  const disclaimers = await TermsAndConditions.find({ documentType: 'disclaimer' })
-    .populate('publishedBy', 'name email')
-    .sort({ createdAt: -1 });
+  const disclaimers = await TermsAndConditions.findAll({
+    where: { documentType: 'disclaimer' },
+    include: [{ model: User, as: 'publishedBy', attributes: ['name', 'email'] }],
+    order: [['createdAt', 'DESC']]
+  });
   res.json(disclaimers);
 });
 
@@ -59,10 +68,9 @@ const getAllDisclaimerVersions = asyncHandler(async (req, res) => {
 // @route   GET /api/terms/admin/:id
 // @access  Private/Admin
 const getTermsById = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findById(req.params.id).populate(
-    'publishedBy',
-    'name email',
-  );
+  const terms = await TermsAndConditions.findByPk(req.params.id, {
+    include: [{ model: User, as: 'publishedBy', attributes: ['name', 'email'] }]
+  });
 
   if (!terms) {
     res.status(404);
@@ -80,8 +88,10 @@ const createTerms = asyncHandler(async (req, res) => {
 
   // Check if version already exists for this document type
   const versionExists = await TermsAndConditions.findOne({
-    documentType: documentType || 'terms',
-    version,
+    where: {
+      documentType: documentType || 'terms',
+      version,
+    }
   });
   if (versionExists) {
     res.status(400);
@@ -93,8 +103,8 @@ const createTerms = asyncHandler(async (req, res) => {
     title: title || (documentType === 'disclaimer' ? 'Disclaimer' : 'Terms and Conditions'),
     content,
     version,
-    publishedBy: req.user._id,
-    effectiveDate: effectiveDate || Date.now(),
+    publishedById: req.user.id,
+    effectiveDate: effectiveDate || new Date(),
     isActive: false,
   });
 
@@ -105,7 +115,7 @@ const createTerms = asyncHandler(async (req, res) => {
 // @route   PUT /api/terms/admin/:id
 // @access  Private/Admin
 const updateTerms = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findById(req.params.id);
+  const terms = await TermsAndConditions.findByPk(req.params.id);
 
   if (!terms) {
     res.status(404);
@@ -118,20 +128,21 @@ const updateTerms = asyncHandler(async (req, res) => {
     throw new Error('Cannot edit active terms. Create a new version instead.');
   }
 
-  terms.title = req.body.title || terms.title;
-  terms.content = req.body.content || terms.content;
-  terms.version = req.body.version || terms.version;
-  terms.effectiveDate = req.body.effectiveDate || terms.effectiveDate;
+  await terms.update({
+    title: req.body.title || terms.title,
+    content: req.body.content || terms.content,
+    version: req.body.version || terms.version,
+    effectiveDate: req.body.effectiveDate || terms.effectiveDate,
+  });
 
-  const updatedTerms = await terms.save();
-  res.json(updatedTerms);
+  res.json(terms);
 });
 
 // @desc    Publish/activate terms version
 // @route   PUT /api/terms/admin/:id/publish
 // @access  Private/Admin
 const publishTerms = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findById(req.params.id);
+  const terms = await TermsAndConditions.findByPk(req.params.id);
 
   if (!terms) {
     res.status(404);
@@ -139,44 +150,46 @@ const publishTerms = asyncHandler(async (req, res) => {
   }
 
   // Deactivate all other versions of the SAME documentType only
-  await TermsAndConditions.updateMany(
-    {
-      isActive: true,
-      documentType: terms.documentType,
-    },
+  await TermsAndConditions.update(
     { isActive: false },
+    {
+      where: {
+        isActive: true,
+        documentType: terms.documentType,
+      }
+    }
   );
 
   // Activate this version
-  terms.isActive = true;
-  terms.publishedAt = Date.now();
-  terms.publishedBy = req.user._id;
+  await terms.update({
+    isActive: true,
+    publishedAt: new Date(),
+    publishedById: req.user.id,
+  });
 
-  const publishedTerms = await terms.save();
-  res.json(publishedTerms);
+  res.json(terms);
 });
 
 // @desc    Unpublish terms version
 // @route   PUT /api/terms/admin/:id/unpublish
 // @access  Private/Admin
 const unpublishTerms = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findById(req.params.id);
+  const terms = await TermsAndConditions.findByPk(req.params.id);
 
   if (!terms) {
     res.status(404);
     throw new Error('Terms version not found');
   }
 
-  terms.isActive = false;
-  const unpublishedTerms = await terms.save();
-  res.json(unpublishedTerms);
+  await terms.update({ isActive: false });
+  res.json(terms);
 });
 
 // @desc    Delete terms version
 // @route   DELETE /api/terms/admin/:id
 // @access  Private/Admin
 const deleteTerms = asyncHandler(async (req, res) => {
-  const terms = await TermsAndConditions.findById(req.params.id);
+  const terms = await TermsAndConditions.findByPk(req.params.id);
 
   if (!terms) {
     res.status(404);
@@ -189,7 +202,7 @@ const deleteTerms = asyncHandler(async (req, res) => {
     throw new Error('Cannot delete active terms version');
   }
 
-  await TermsAndConditions.findByIdAndDelete(req.params.id);
+  await terms.destroy();
   res.json({ message: 'Terms version deleted successfully' });
 });
 

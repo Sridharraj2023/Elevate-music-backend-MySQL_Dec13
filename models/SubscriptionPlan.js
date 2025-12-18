@@ -58,8 +58,7 @@ const SubscriptionPlan = sequelize.define(
     // Stripe Integration
     stripePriceId: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
+      allowNull: true,
     },
     stripeMonthlyPriceId: {
       type: DataTypes.STRING,

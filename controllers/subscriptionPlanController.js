@@ -1,5 +1,7 @@
 import SubscriptionPlan from '../models/SubscriptionPlan.js';
+import User from '../models/userModel.js';
 import Stripe from 'stripe';
+import { Op } from 'sequelize';
 
 // Initialize Stripe
 let stripe = null;
@@ -14,10 +16,13 @@ if (process.env.STRIPE_SECRET_KEY) {
 // GET /admin/subscription-plans - Get all subscription plans (admin only)
 export const getAllSubscriptionPlans = async (req, res) => {
   try {
-    const plans = await SubscriptionPlan.find({})
-      .populate('createdBy', 'name email')
-      .populate('lastModifiedBy', 'name email')
-      .sort({ createdAt: -1 });
+    const plans = await SubscriptionPlan.findAll({
+      include: [
+        { model: User, as: 'createdBy', attributes: ['name', 'email'] },
+        { model: User, as: 'lastModifiedBy', attributes: ['name', 'email'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
 
     return res.json({
       success: true,
@@ -56,9 +61,12 @@ export const getActiveSubscriptionPlans = async (req, res) => {
 export const getSubscriptionPlanById = async (req, res) => {
   try {
     const { id } = req.params;
-    const plan = await SubscriptionPlan.findById(id)
-      .populate('createdBy', 'name email')
-      .populate('lastModifiedBy', 'name email');
+    const plan = await SubscriptionPlan.findByPk(id, {
+      include: [
+        { model: User, as: 'createdBy', attributes: ['name', 'email'] },
+        { model: User, as: 'lastModifiedBy', attributes: ['name', 'email'] }
+      ]
+    });
 
     if (!plan) {
       return res.status(404).json({
@@ -140,7 +148,7 @@ export const createSubscriptionPlan = async (req, res) => {
           description: description || `Subscription plan: ${title}`,
           metadata: {
             plan_type: 'subscription',
-            created_by_admin: req.user._id.toString(),
+            created_by_admin: req.user.id.toString(),
           },
         });
 
@@ -204,7 +212,7 @@ export const createSubscriptionPlan = async (req, res) => {
     }
 
     // Create subscription plan
-    const newPlan = new SubscriptionPlan({
+    const newPlan = await SubscriptionPlan.create({
       title,
       monthlyCost: parseFloat(monthlyCost),
       annualCost: parseFloat(annualCost),
@@ -215,21 +223,16 @@ export const createSubscriptionPlan = async (req, res) => {
       soundscapeTracks,
       dynamicAudioFeatures,
       customTrackRequests,
-      stripePriceId,
+      stripePriceId: stripePriceId || stripeMonthlyPriceIdFinal,
       stripeMonthlyPriceId: stripeMonthlyPriceIdFinal,
       stripeYearlyPriceId: stripeYearlyPriceIdFinal,
       stripeProductId,
       description,
       features: features || [],
       isDefault: isDefault || false,
-      createdBy: req.user._id,
+      createdById: req.user?.id || req.user?.userId || null,
       effectiveDate: new Date(),
     });
-
-    await newPlan.save();
-
-    // Populate the response
-    await newPlan.populate('createdBy', 'name email');
 
     return res.status(201).json({
       success: true,
@@ -250,7 +253,7 @@ export const createSubscriptionPlan = async (req, res) => {
 export const updateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = { ...req.body, lastModifiedBy: req.user._id };
+    const updateData = { ...req.body, lastModifiedById: req.user.id };
 
     // Remove fields that shouldn't be updated directly (except new price IDs)
     delete updateData.stripePriceId;
@@ -273,12 +276,14 @@ export const updateSubscriptionPlan = async (req, res) => {
       updateData.annualCost = parseFloat(updateData.annualCost);
     }
 
-    const updatedPlan = await SubscriptionPlan.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    })
-      .populate('createdBy', 'name email')
-      .populate('lastModifiedBy', 'name email');
+    await SubscriptionPlan.update(updateData, { where: { id } });
+    
+    const updatedPlan = await SubscriptionPlan.findByPk(id, {
+      include: [
+        { model: User, as: 'createdBy', attributes: ['name', 'email'] },
+        { model: User, as: 'lastModifiedBy', attributes: ['name', 'email'] }
+      ]
+    });
 
     if (!updatedPlan) {
       return res.status(404).json({
@@ -307,7 +312,7 @@ export const deactivateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const plan = await SubscriptionPlan.findById(id);
+    const plan = await SubscriptionPlan.findByPk(id);
     if (!plan) {
       return res.status(404).json({
         success: false,
@@ -316,7 +321,9 @@ export const deactivateSubscriptionPlan = async (req, res) => {
     }
 
     // Deactivate the plan
-    await plan.deactivate(req.user._id);
+    plan.isActive = false;
+    plan.lastModifiedById = req.user.id;
+    await plan.save();
 
     return res.json({
       success: true,
@@ -337,7 +344,7 @@ export const activateSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const plan = await SubscriptionPlan.findById(id);
+    const plan = await SubscriptionPlan.findByPk(id);
     if (!plan) {
       return res.status(404).json({
         success: false,
@@ -347,7 +354,7 @@ export const activateSubscriptionPlan = async (req, res) => {
 
     plan.isActive = true;
     plan.endDate = null;
-    plan.lastModifiedBy = req.user._id;
+    plan.lastModifiedById = req.user.id;
     await plan.save();
 
     return res.json({
@@ -379,7 +386,7 @@ export const getCurrentSubscriptionPlan = async (req, res) => {
 
     // Return only the data needed for the frontend
     const planData = {
-      id: currentPlan._id,
+      id: currentPlan.id,
       title: currentPlan.title,
       monthlyCost: currentPlan.monthlyCostFormatted,
       annualCost: currentPlan.annualCostFormatted,
@@ -416,7 +423,7 @@ export const setDefaultSubscriptionPlan = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const plan = await SubscriptionPlan.findById(id);
+    const plan = await SubscriptionPlan.findByPk(id);
     if (!plan) {
       return res.status(404).json({
         success: false,
@@ -425,14 +432,14 @@ export const setDefaultSubscriptionPlan = async (req, res) => {
     }
 
     // Remove default flag from all other plans
-    await SubscriptionPlan.updateMany(
-      { _id: { $ne: id } },
-      { isDefault: false, lastModifiedBy: req.user._id },
+    await SubscriptionPlan.update(
+      { isDefault: false, lastModifiedById: req.user.id },
+      { where: { id: { [Op.ne]: id } } }
     );
 
     // Set this plan as default
     plan.isDefault = true;
-    plan.lastModifiedBy = req.user._id;
+    plan.lastModifiedById = req.user.id;
     await plan.save();
 
     return res.json({

@@ -7,7 +7,13 @@ import asyncHandler from 'express-async-handler';
 const getCategories = async (req, res) => {
   try {
     const categories = await Category.findAll();
-    res.json(categories);
+    // Ensure types is always an array for each category
+    const processedCategories = categories.map(category => {
+      const categoryData = category.toJSON();
+      categoryData.types = Array.isArray(categoryData.types) ? categoryData.types : [];
+      return categoryData;
+    });
+    res.json(processedCategories);
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }

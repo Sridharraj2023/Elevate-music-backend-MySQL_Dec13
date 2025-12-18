@@ -22,6 +22,22 @@ const Category = sequelize.define(
       type: DataTypes.JSON,
       defaultValue: [],
       // Example: [{ id: uuid, name: 'Classical', description: '...' }]
+      get() {
+        const rawValue = this.getDataValue('types');
+        // Ensure types is always an array
+        if (typeof rawValue === 'string') {
+          try {
+            return JSON.parse(rawValue);
+          } catch (e) {
+            return [];
+          }
+        }
+        return Array.isArray(rawValue) ? rawValue : [];
+      },
+      set(value) {
+        // Ensure we're storing an array
+        this.setDataValue('types', Array.isArray(value) ? value : []);
+      }
     },
   },
   {
