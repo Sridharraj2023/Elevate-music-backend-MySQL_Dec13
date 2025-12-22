@@ -6,8 +6,8 @@ const TermsAndConditions = sequelize.define(
   'TermsAndConditions',
   {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
     },
     documentType: {
@@ -37,7 +37,7 @@ const TermsAndConditions = sequelize.define(
       defaultValue: null,
     },
     publishedById: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: User,

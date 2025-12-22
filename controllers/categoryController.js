@@ -19,6 +19,13 @@ const getCategories = async (req, res) => {
   }
 };
 
+// Helper function to get next available ID for types
+const getNextTypeId = (existingTypes) => {
+  if (!existingTypes || existingTypes.length === 0) return 1;
+  const maxId = Math.max(...existingTypes.map(type => parseInt(type.id) || 0));
+  return maxId + 1;
+};
+
 // @desc    Create a new category with optional types
 // @route   POST /api/categories/create
 // @access  Private/Admin
@@ -36,11 +43,17 @@ const createCategory = asyncHandler(async (req, res) => {
     throw new Error('Category already exists');
   }
 
+  // Add auto-increment IDs to types
+  const typesWithIds = (types || []).map((type, index) => ({
+    id: index + 1,
+    name: type.name,
+    description: type.description
+  }));
+
   const category = await Category.create({
     name,
     description,
-    types: types || [], // Expecting types as an array of {name, description}
-    // Remove user field as it's not in the Category model
+    types: typesWithIds,
   });
 
   if (category) {
@@ -65,7 +78,16 @@ const updateCategory = asyncHandler(async (req, res) => {
 
   category.name = name || category.name;
   category.description = description || category.description;
-  if (types !== undefined) category.types = types; // Replace types if provided
+  
+  if (types !== undefined) {
+    // Add auto-increment IDs to types that don't have them
+    const typesWithIds = types.map((type, index) => ({
+      id: type.id || (index + 1),
+      name: type.name,
+      description: type.description
+    }));
+    category.types = typesWithIds;
+  }
 
   const updatedCategory = await category.save();
   res.json(updatedCategory);
@@ -107,7 +129,12 @@ const addCategoryType = asyncHandler(async (req, res) => {
     throw new Error('Type already exists in this category');
   }
 
-  category.types.push({ name, description });
+  const nextId = getNextTypeId(category.types);
+  category.types.push({ 
+    id: nextId,
+    name, 
+    description 
+  });
   const updatedCategory = await category.save();
   res.status(201).json(updatedCategory);
 });
@@ -124,7 +151,7 @@ const updateCategoryType = asyncHandler(async (req, res) => {
     throw new Error('Category not found');
   }
 
-  const typeIndex = category.types.findIndex(type => type.id === req.params.typeId);
+  const typeIndex = category.types.findIndex(type => type.id == req.params.typeId);
   if (typeIndex === -1) {
     res.status(404);
     throw new Error('Type not found');
@@ -148,7 +175,7 @@ const deleteCategoryType = asyncHandler(async (req, res) => {
     throw new Error('Category not found');
   }
 
-  const typeIndex = category.types.findIndex(type => type.id === req.params.typeId);
+  const typeIndex = category.types.findIndex(type => type.id == req.params.typeId);
   if (typeIndex === -1) {
     res.status(404);
     throw new Error('Type not found');

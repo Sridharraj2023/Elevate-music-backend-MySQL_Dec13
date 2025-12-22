@@ -7,8 +7,8 @@ const Music = sequelize.define(
   'Music',
   {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
     },
     title: {
@@ -20,7 +20,7 @@ const Music = sequelize.define(
       allowNull: false,
     },
     categoryId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: Category,
@@ -55,7 +55,7 @@ const Music = sequelize.define(
       defaultValue: '',
     },
     userId: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: User,

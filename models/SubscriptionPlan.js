@@ -6,8 +6,8 @@ const SubscriptionPlan = sequelize.define(
   'SubscriptionPlan',
   {
     id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
       primaryKey: true,
     },
     // Basic Plan Information
@@ -101,7 +101,7 @@ const SubscriptionPlan = sequelize.define(
     },
     // Admin Tracking
     createdById: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       allowNull: false,
       references: {
         model: User,
@@ -109,7 +109,7 @@ const SubscriptionPlan = sequelize.define(
       },
     },
     lastModifiedById: {
-      type: DataTypes.UUID,
+      type: DataTypes.INTEGER,
       references: {
         model: User,
         key: 'id',
