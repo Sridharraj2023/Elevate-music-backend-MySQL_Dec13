@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'elevate_music',
+  process.env.DB_NAME || 'railway',
   process.env.DB_USER || 'root',
   process.env.DB_PASSWORD || '',
   {
@@ -19,6 +19,13 @@ const sequelize = new Sequelize(
       idle: 10000,
     },
     timezone: '+00:00', // UTC timezone
+    dialectOptions: {
+      // SSL required for cloud databases
+      ssl: process.env.NODE_ENV === 'production' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false,
+    },
   },
 );
 
